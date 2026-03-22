@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import engine
 from app.models import Base
-from app.routers import llm, words
+from app.routers import auth, llm, words
 
 
 @asynccontextmanager
@@ -29,5 +29,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(llm.router)
 app.include_router(words.router)

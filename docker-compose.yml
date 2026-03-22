@@ -19,6 +19,8 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://english_tool:english_tool_pw@db:5432/english_tool
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
     depends_on:
       - db
 

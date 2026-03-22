@@ -6,6 +6,17 @@ import uuid
 from pydantic import BaseModel
 
 
+# --- Auth ---
+
+class UserOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    name: str
+    picture: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
 # --- LLM Generation ---
 
 class WordGenerateRequest(BaseModel):
