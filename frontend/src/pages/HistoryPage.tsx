@@ -170,7 +170,7 @@ export default function HistoryPage() {
       ),
     },
     {
-      title: "諧音記憶",
+      title: "故事",
       dataIndex: "mnemonic",
       width: 160,
       render: (text: string | null, _: WordOut, index: number) => (

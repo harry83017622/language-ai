@@ -39,6 +39,7 @@ export interface WordResult {
   kk_phonetic: string | null;
   example_sentence: string | null;
   mnemonic: string | null;
+  mnemonic_options?: string[] | null;
 }
 
 export interface WordGroupSummary {
