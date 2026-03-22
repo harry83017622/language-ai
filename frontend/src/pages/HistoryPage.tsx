@@ -10,8 +10,7 @@ import {
   Table,
   Typography,
 } from "antd";
-import { DeleteOutlined, EyeOutlined, SearchOutlined } from "@ant-design/icons";
-import dayjs from "dayjs";
+import { DeleteOutlined, EditOutlined, SaveOutlined, SearchOutlined } from "@ant-design/icons";
 import type { WordGroupSummary, WordGroupOut, WordOut } from "../api";
 import { deleteWordGroup, getWordGroup, listWordGroups, updateWord } from "../api";
 
@@ -27,6 +26,10 @@ export default function HistoryPage() {
   // Detail modal
   const [detail, setDetail] = useState<WordGroupOut | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Editable state: local copy of words for editing
+  const [editWords, setEditWords] = useState<WordOut[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -54,6 +57,7 @@ export default function HistoryPage() {
     try {
       const data = await getWordGroup(id);
       setDetail(data);
+      setEditWords(data.words.map((w) => ({ ...w })));
       setDetailOpen(true);
     } catch {
       message.error("載入詳情失敗");
@@ -75,11 +79,41 @@ export default function HistoryPage() {
     });
   };
 
-  const handleCellSave = async (wordId: string, field: string, value: string) => {
+  const updateEditWord = (index: number, field: keyof WordOut, value: string) => {
+    setEditWords((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    if (!detail) return;
+    setSaving(true);
     try {
-      await updateWord(wordId, { [field]: value });
+      const promises = editWords.map((w, i) => {
+        const original = detail.words[i];
+        const changes: Record<string, string> = {};
+        for (const field of ["english", "chinese", "kk_phonetic", "mnemonic", "example_sentence"] as const) {
+          if ((w[field] ?? "") !== (original[field] ?? "")) {
+            changes[field] = w[field] ?? "";
+          }
+        }
+        if (Object.keys(changes).length > 0) {
+          return updateWord(w.id, changes);
+        }
+        return null;
+      });
+      await Promise.all(promises.filter(Boolean));
+      message.success("儲存成功！");
+      // Refresh detail
+      const refreshed = await getWordGroup(detail.id);
+      setDetail(refreshed);
+      setEditWords(refreshed.words.map((w) => ({ ...w })));
     } catch {
-      message.error("更新失敗");
+      message.error("儲存失敗");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -92,8 +126,8 @@ export default function HistoryPage() {
       width: 120,
       render: (_: unknown, record: WordGroupSummary) => (
         <Space>
-          <Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(record.id)}>
-            查看
+          <Button size="small" icon={<EditOutlined />} onClick={() => openDetail(record.id)}>
+            編輯
           </Button>
           <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
         </Space>
@@ -106,12 +140,10 @@ export default function HistoryPage() {
       title: "英文",
       dataIndex: "english",
       width: 130,
-      render: (text: string, record: WordOut) => (
+      render: (text: string, _: WordOut, index: number) => (
         <Input
-          defaultValue={text}
-          onBlur={(e) => {
-            if (e.target.value !== text) handleCellSave(record.id, "english", e.target.value);
-          }}
+          value={editWords[index]?.english ?? text}
+          onChange={(e) => updateEditWord(index, "english", e.target.value)}
         />
       ),
     },
@@ -119,12 +151,10 @@ export default function HistoryPage() {
       title: "中文",
       dataIndex: "chinese",
       width: 130,
-      render: (text: string | null, record: WordOut) => (
+      render: (text: string | null, _: WordOut, index: number) => (
         <Input
-          defaultValue={text ?? ""}
-          onBlur={(e) => {
-            if (e.target.value !== (text ?? "")) handleCellSave(record.id, "chinese", e.target.value);
-          }}
+          value={editWords[index]?.chinese ?? text ?? ""}
+          onChange={(e) => updateEditWord(index, "chinese", e.target.value)}
         />
       ),
     },
@@ -132,12 +162,10 @@ export default function HistoryPage() {
       title: "KK 音標",
       dataIndex: "kk_phonetic",
       width: 160,
-      render: (text: string | null, record: WordOut) => (
+      render: (text: string | null, _: WordOut, index: number) => (
         <Input
-          defaultValue={text ?? ""}
-          onBlur={(e) => {
-            if (e.target.value !== (text ?? "")) handleCellSave(record.id, "kk_phonetic", e.target.value);
-          }}
+          value={editWords[index]?.kk_phonetic ?? text ?? ""}
+          onChange={(e) => updateEditWord(index, "kk_phonetic", e.target.value)}
         />
       ),
     },
@@ -145,25 +173,21 @@ export default function HistoryPage() {
       title: "諧音記憶",
       dataIndex: "mnemonic",
       width: 160,
-      render: (text: string | null, record: WordOut) => (
+      render: (text: string | null, _: WordOut, index: number) => (
         <Input
-          defaultValue={text ?? ""}
-          onBlur={(e) => {
-            if (e.target.value !== (text ?? "")) handleCellSave(record.id, "mnemonic", e.target.value);
-          }}
+          value={editWords[index]?.mnemonic ?? text ?? ""}
+          onChange={(e) => updateEditWord(index, "mnemonic", e.target.value)}
         />
       ),
     },
     {
       title: "例句",
       dataIndex: "example_sentence",
-      render: (text: string | null, record: WordOut) => (
+      render: (text: string | null, _: WordOut, index: number) => (
         <Input.TextArea
-          defaultValue={text ?? ""}
+          value={editWords[index]?.example_sentence ?? text ?? ""}
+          onChange={(e) => updateEditWord(index, "example_sentence", e.target.value)}
           autoSize={{ minRows: 1, maxRows: 3 }}
-          onBlur={(e) => {
-            if (e.target.value !== (text ?? "")) handleCellSave(record.id, "example_sentence", e.target.value);
-          }}
         />
       ),
     },
@@ -209,12 +233,24 @@ export default function HistoryPage() {
         title={detail ? `${detail.title} (${detail.saved_date})` : ""}
         open={detailOpen}
         onCancel={() => setDetailOpen(false)}
-        footer={null}
         width={1100}
+        footer={
+          <Space>
+            <Button onClick={() => setDetailOpen(false)}>關閉</Button>
+            <Button
+              type="primary"
+              icon={<SaveOutlined />}
+              onClick={handleSave}
+              loading={saving}
+            >
+              儲存修改
+            </Button>
+          </Space>
+        }
       >
         {detail && (
           <Table
-            dataSource={detail.words}
+            dataSource={editWords}
             columns={wordColumns}
             rowKey="id"
             pagination={false}
