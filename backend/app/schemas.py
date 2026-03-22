@@ -92,6 +92,20 @@ class WordGroupSummary(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class WordSearchResult(BaseModel):
+    id: uuid.UUID
+    english: str
+    chinese: str | None = None
+    kk_phonetic: str | None = None
+    mnemonic: str | None = None
+    example_sentence: str | None = None
+    sort_order: int
+    group_title: str
+    group_saved_date: str
+
+    model_config = {"from_attributes": True}
+
+
 class WordUpdate(BaseModel):
     english: str | None = None
     chinese: str | None = None

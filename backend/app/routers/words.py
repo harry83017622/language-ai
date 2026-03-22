@@ -15,6 +15,7 @@ from app.schemas import (
     WordGroupOut,
     WordGroupSummary,
     WordOut,
+    WordSearchResult,
     WordUpdate,
 )
 
@@ -92,6 +93,35 @@ async def upload_csv(file: UploadFile, user: User = Depends(get_current_user)):
         "words": words,
         "detected_columns": {v: k for k, v in col_map.items()},
     }
+
+
+@router.get("/search-words", response_model=list[WordSearchResult])
+async def search_words(
+    q: str = Query(..., min_length=4),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Word, WordGroup.title, WordGroup.saved_date)
+        .join(WordGroup)
+        .where(WordGroup.user_id == user.id, Word.english.ilike(f"%{q}%"))
+        .order_by(Word.english)
+    )
+    rows = result.all()
+    return [
+        WordSearchResult(
+            id=word.id,
+            english=word.english,
+            chinese=word.chinese,
+            kk_phonetic=word.kk_phonetic,
+            mnemonic=word.mnemonic,
+            example_sentence=word.example_sentence,
+            sort_order=word.sort_order,
+            group_title=title,
+            group_saved_date=saved_date,
+        )
+        for word, title, saved_date in rows
+    ]
 
 
 @router.post("/word-groups", response_model=WordGroupOut)

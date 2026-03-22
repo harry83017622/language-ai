@@ -126,4 +126,14 @@ export async function uploadCsv(file: File): Promise<CsvUploadResponse> {
   return res.data;
 }
 
+export interface WordSearchResult extends WordOut {
+  group_title: string;
+  group_saved_date: string;
+}
+
+export async function searchWords(q: string): Promise<WordSearchResult[]> {
+  const res = await api.get("/search-words", { params: { q } });
+  return res.data;
+}
+
 export default api;
