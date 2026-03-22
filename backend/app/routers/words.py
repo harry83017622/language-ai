@@ -1,6 +1,8 @@
+import csv
+import io
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,6 +19,79 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/api", tags=["words"])
+
+# Column detection keywords
+_COLUMN_PATTERNS: dict[str, list[str]] = {
+    "english": ["english", "eng", "英文", "單字", "word", "vocabulary", "vocab"],
+    "chinese": ["chinese", "中文", "翻譯", "解釋", "meaning", "definition", "chi", "中文解釋"],
+    "kk_phonetic": ["kk", "音標", "phonetic", "pronunciation", "發音"],
+    "mnemonic": ["諧音", "記憶", "mnemonic", "memory", "聯想"],
+    "example_sentence": ["例句", "sentence", "example", "造句"],
+}
+
+
+def _detect_column(header: str) -> str | None:
+    h = header.strip().lower()
+    for field, keywords in _COLUMN_PATTERNS.items():
+        for kw in keywords:
+            if kw in h:
+                return field
+    return None
+
+
+@router.post("/upload-csv")
+async def upload_csv(file: UploadFile, user: User = Depends(get_current_user)):
+    if not file.filename or not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="請上傳 CSV 檔案")
+
+    content = await file.read()
+    # Try utf-8 first, fallback to big5 (common for Traditional Chinese CSVs)
+    for encoding in ("utf-8-sig", "utf-8", "big5", "gbk"):
+        try:
+            text = content.decode(encoding)
+            break
+        except (UnicodeDecodeError, LookupError):
+            continue
+    else:
+        raise HTTPException(status_code=400, detail="無法解析檔案編碼")
+
+    reader = csv.DictReader(io.StringIO(text))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV 沒有欄位標題")
+
+    # Auto-detect column mapping
+    col_map: dict[str, str] = {}  # csv_header -> our_field
+    for header in reader.fieldnames:
+        field = _detect_column(header)
+        if field and field not in col_map.values():
+            col_map[header] = field
+
+    if "english" not in col_map.values():
+        raise HTTPException(status_code=400, detail="找不到英文欄位，請確認 CSV 標題包含 english/英文/單字 等關鍵字")
+
+    words = []
+    for row in reader:
+        word: dict[str, str | None] = {
+            "english": None,
+            "chinese": None,
+            "kk_phonetic": None,
+            "mnemonic": None,
+            "example_sentence": None,
+        }
+        for csv_header, field in col_map.items():
+            val = row.get(csv_header, "").strip()
+            if val:
+                word[field] = val
+        if word["english"]:
+            words.append(word)
+
+    if not words:
+        raise HTTPException(status_code=400, detail="CSV 中沒有有效的單字資料")
+
+    return {
+        "words": words,
+        "detected_columns": {v: k for k, v in col_map.items()},
+    }
 
 
 @router.post("/word-groups", response_model=WordGroupOut)

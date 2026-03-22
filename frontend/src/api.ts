@@ -114,4 +114,16 @@ export async function deleteWordGroup(id: string): Promise<void> {
   await api.delete(`/word-groups/${id}`);
 }
 
+export interface CsvUploadResponse {
+  words: WordResult[];
+  detected_columns: Record<string, string>;
+}
+
+export async function uploadCsv(file: File): Promise<CsvUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await api.post("/upload-csv", formData);
+  return res.data;
+}
+
 export default api;

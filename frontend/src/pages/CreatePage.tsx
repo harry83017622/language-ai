@@ -10,11 +10,12 @@ import {
   Spin,
   Table,
   Typography,
+  Upload,
 } from "antd";
-import { DeleteOutlined, PlusOutlined, SendOutlined, SaveOutlined } from "@ant-design/icons";
+import { DeleteOutlined, PlusOutlined, SendOutlined, SaveOutlined, UploadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { WordGenerateRequest, WordResult } from "../api";
-import { generateWords, saveWordGroup } from "../api";
+import { generateWords, saveWordGroup, uploadCsv } from "../api";
 
 const { Title } = Typography;
 
@@ -86,6 +87,27 @@ export default function CreatePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // --- CSV upload ---
+
+  const handleCsvUpload = async (file: File) => {
+    try {
+      const data = await uploadCsv(file);
+      const detectedFields = Object.keys(data.detected_columns);
+      setResults(
+        data.words.map((w, i) => ({
+          ...w,
+          key: String(i),
+        }))
+      );
+      message.success(
+        `已匯入 ${data.words.length} 個單字（偵測到欄位：${detectedFields.join("、")}）`
+      );
+    } catch (e: any) {
+      message.error("CSV 匯入失敗：" + (e?.response?.data?.detail || e.message));
+    }
+    return false; // prevent antd default upload
   };
 
   // --- Result phase ---
@@ -288,6 +310,16 @@ export default function CreatePage() {
             >
               送出生成
             </Button>
+            <Upload
+              accept=".csv"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                handleCsvUpload(file as File);
+                return false;
+              }}
+            >
+              <Button icon={<UploadOutlined />}>匯入 CSV</Button>
+            </Upload>
           </Space>
         </Card>
       )}
