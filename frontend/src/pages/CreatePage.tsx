@@ -80,7 +80,12 @@ export default function CreatePage() {
         need_mnemonic: r.need_mnemonic,
       }));
       const data = await generateWords(req);
-      setResults(data.map((d, i) => ({ ...d, key: String(i) })));
+      setResults(data.map((d, i) => ({
+        ...d,
+        key: String(i),
+        // If only 1 option (from DB), use it directly. If multiple, leave empty for user to pick.
+        mnemonic: d.mnemonic_options?.length === 1 ? d.mnemonic_options[0] : (d.mnemonic ?? null),
+      })));
       message.success("生成完成！");
     } catch (e: any) {
       message.error("生成失敗：" + (e?.response?.data?.detail || e.message));
@@ -92,6 +97,7 @@ export default function CreatePage() {
   // --- CSV upload ---
 
   const handleCsvUpload = async (file: File) => {
+    setLoading(true);
     try {
       const data = await uploadCsv(file);
       const detectedFields = Object.keys(data.detected_columns);
@@ -99,6 +105,8 @@ export default function CreatePage() {
         data.words.map((w, i) => ({
           ...w,
           key: String(i),
+          // If only 1 option (from DB), use it directly. If multiple, leave empty for user to pick.
+          mnemonic: w.mnemonic_options?.length === 1 ? w.mnemonic_options[0] : (w.mnemonic ?? null),
         }))
       );
       message.success(
@@ -106,8 +114,10 @@ export default function CreatePage() {
       );
     } catch (e: any) {
       message.error("CSV 匯入失敗：" + (e?.response?.data?.detail || e.message));
+    } finally {
+      setLoading(false);
     }
-    return false; // prevent antd default upload
+    return false;
   };
 
   // --- Result phase ---
@@ -143,7 +153,6 @@ export default function CreatePage() {
         })),
       });
       message.success("儲存成功！");
-      // Reset
       setResults(null);
       setInputs([newRow()]);
       setGroupTitle("");
@@ -208,7 +217,7 @@ export default function CreatePage() {
       ),
     },
     {
-      title: "諧音",
+      title: "故事",
       dataIndex: "need_mnemonic",
       width: 70,
       align: "center" as const,
@@ -239,7 +248,7 @@ export default function CreatePage() {
     {
       title: "英文",
       dataIndex: "english",
-      width: 150,
+      width: 130,
       render: (text: string, _: WordResult, index: number) => (
         <Input value={text} onChange={(e) => updateResult(index, "english", e.target.value)} />
       ),
@@ -247,7 +256,7 @@ export default function CreatePage() {
     {
       title: "中文",
       dataIndex: "chinese",
-      width: 150,
+      width: 130,
       render: (text: string | null, _: WordResult, index: number) => (
         <Input value={text ?? ""} onChange={(e) => updateResult(index, "chinese", e.target.value)} />
       ),
@@ -255,23 +264,65 @@ export default function CreatePage() {
     {
       title: "KK 音標",
       dataIndex: "kk_phonetic",
-      width: 180,
+      width: 160,
       render: (text: string | null, _: WordResult, index: number) => (
         <Input value={text ?? ""} onChange={(e) => updateResult(index, "kk_phonetic", e.target.value)} />
       ),
     },
     {
-      title: "諧音記憶",
+      title: "故事",
       dataIndex: "mnemonic",
-      width: 180,
-      render: (text: string | null, _: WordResult, index: number) => (
-        <Input value={text ?? ""} onChange={(e) => updateResult(index, "mnemonic", e.target.value)} />
-      ),
+      width: 280,
+      render: (_: unknown, record: WordResult, index: number) => {
+        const options = record.mnemonic_options;
+        if (options && options.length > 1) {
+          const selected = (record.mnemonic ?? "").split("\n").filter(Boolean);
+          // Filter out any custom input value from selected (not in options)
+          const customValue = selected.find((s) => !options.includes(s)) ?? "";
+          const checkboxSelected = selected.filter((s) => options.includes(s));
+          return (
+            <Space direction="vertical" size={4} style={{ width: "100%" }}>
+              <Checkbox.Group
+                value={checkboxSelected}
+                onChange={(checked) => {
+                  const parts = [...(checked as string[])];
+                  if (customValue) parts.push(customValue);
+                  updateResult(index, "mnemonic", parts.join("\n"));
+                }}
+              >
+                <Space direction="vertical" size={4}>
+                  {options.map((opt, i) => (
+                    <Checkbox key={i} value={opt} style={{ fontSize: 13 }}>
+                      {opt}
+                    </Checkbox>
+                  ))}
+                </Space>
+              </Checkbox.Group>
+              <Input
+                placeholder="自行輸入..."
+                value={customValue}
+                onChange={(e) => {
+                  const parts = [...checkboxSelected];
+                  if (e.target.value) parts.push(e.target.value);
+                  updateResult(index, "mnemonic", parts.join("\n"));
+                }}
+                size="small"
+              />
+            </Space>
+          );
+        }
+        return (
+          <Input
+            value={record.mnemonic ?? ""}
+            onChange={(e) => updateResult(index, "mnemonic", e.target.value)}
+          />
+        );
+      },
     },
     {
       title: "例句",
       dataIndex: "example_sentence",
-      width: 300,
+      width: 260,
       render: (text: string | null, _: WordResult, index: number) => (
         <Input.TextArea
           value={text ?? ""}

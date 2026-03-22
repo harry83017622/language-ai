@@ -36,7 +36,7 @@ class WordGenerateResult(BaseModel):
     chinese: str | None = None
     kk_phonetic: str | None = None
     example_sentence: str | None = None
-    mnemonic: str | None = None
+    mnemonic_options: list[str] | None = None
 
 
 class GenerateResponse(BaseModel):

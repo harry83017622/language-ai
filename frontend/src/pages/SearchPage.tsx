@@ -33,7 +33,7 @@ export default function SearchPage() {
     { title: "英文", dataIndex: "english", width: 130 },
     { title: "中文", dataIndex: "chinese", width: 120 },
     { title: "KK 音標", dataIndex: "kk_phonetic", width: 160 },
-    { title: "諧音記憶", dataIndex: "mnemonic", width: 140 },
+    { title: "故事", dataIndex: "mnemonic", width: 140 },
     { title: "例句", dataIndex: "example_sentence", ellipsis: true },
     {
       title: "來源",

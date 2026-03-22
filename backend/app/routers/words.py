@@ -11,6 +11,8 @@ from app.auth import get_current_user
 from app.database import get_db
 from app.models import User, Word, WordGroup
 from app.schemas import (
+    GenerateRequest,
+    WordGenerateRequest,
     WordGroupCreate,
     WordGroupOut,
     WordGroupSummary,
@@ -18,6 +20,7 @@ from app.schemas import (
     WordSearchResult,
     WordUpdate,
 )
+from app.services.llm_service import generate_words
 
 router = APIRouter(prefix="/api", tags=["words"])
 
@@ -26,7 +29,7 @@ _COLUMN_PATTERNS: dict[str, list[str]] = {
     "english": ["english", "eng", "英文", "單字", "word", "vocabulary", "vocab"],
     "chinese": ["chinese", "中文", "翻譯", "解釋", "meaning", "definition", "chi", "中文解釋"],
     "kk_phonetic": ["kk", "音標", "phonetic", "pronunciation", "發音"],
-    "mnemonic": ["諧音", "記憶", "mnemonic", "memory", "聯想"],
+    "mnemonic": ["諧音", "記憶", "mnemonic", "memory", "聯想", "故事", "story"],
     "example_sentence": ["例句", "sentence", "example", "造句"],
 }
 
@@ -41,7 +44,11 @@ def _detect_column(header: str) -> str | None:
 
 
 @router.post("/upload-csv")
-async def upload_csv(file: UploadFile, user: User = Depends(get_current_user)):
+async def upload_csv(
+    file: UploadFile,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
     if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="請上傳 CSV 檔案")
 
@@ -89,8 +96,76 @@ async def upload_csv(file: UploadFile, user: User = Depends(get_current_user)):
     if not words:
         raise HTTPException(status_code=400, detail="CSV 中沒有有效的單字資料")
 
+    # Look up existing words in DB for ALL fields
+    english_list = [w["english"].lower() for w in words]
+    result = await db.execute(
+        select(Word)
+        .join(WordGroup)
+        .where(WordGroup.user_id == user.id, func.lower(Word.english).in_(english_list))
+    )
+    existing: dict[str, Word] = {}
+    for row in result.scalars().all():
+        key = row.english.lower()
+        if key not in existing:
+            existing[key] = row
+
+    # Fill missing fields from DB
+    for w in words:
+        db_word = existing.get(w["english"].lower())
+        if db_word:
+            if not w["chinese"] and db_word.chinese:
+                w["chinese"] = db_word.chinese
+            if not w["kk_phonetic"] and db_word.kk_phonetic:
+                w["kk_phonetic"] = db_word.kk_phonetic
+            if not w["example_sentence"] and db_word.example_sentence:
+                w["example_sentence"] = db_word.example_sentence
+            if not w["mnemonic"] and db_word.mnemonic:
+                w["mnemonic"] = db_word.mnemonic
+
+    # For words still missing fields, call LLM (phrases skip mnemonic)
+    words_for_llm = [
+        w for w in words
+        if not w["mnemonic"] or not w["chinese"] or not w["kk_phonetic"] or not w["example_sentence"]
+    ]
+    mnemonic_options_map: dict[str, list[str]] = {}
+
+    if words_for_llm:
+        llm_request = GenerateRequest(
+            words=[
+                WordGenerateRequest(
+                    english=w["english"],
+                    need_chinese=not w["chinese"],
+                    need_kk=not w["kk_phonetic"],
+                    need_example=not w["example_sentence"],
+                    need_mnemonic=not w["mnemonic"] and " " not in w["english"].strip(),
+                )
+                for w in words_for_llm
+            ]
+        )
+        llm_results = await generate_words(llm_request)
+        for w, lr in zip(words_for_llm, llm_results):
+            if not w["chinese"] and lr.chinese:
+                w["chinese"] = lr.chinese
+            if not w["kk_phonetic"] and lr.kk_phonetic:
+                w["kk_phonetic"] = lr.kk_phonetic
+            if not w["example_sentence"] and lr.example_sentence:
+                w["example_sentence"] = lr.example_sentence
+            if lr.mnemonic_options:
+                mnemonic_options_map[w["english"].lower()] = lr.mnemonic_options
+
+    # Build response with mnemonic_options
+    response_words = []
+    for w in words:
+        entry = {**w}
+        key = w["english"].lower()
+        if key in mnemonic_options_map:
+            entry["mnemonic_options"] = mnemonic_options_map[key]
+        elif w["mnemonic"]:
+            entry["mnemonic_options"] = [w["mnemonic"]]
+        response_words.append(entry)
+
     return {
-        "words": words,
+        "words": response_words,
         "detected_columns": {v: k for k, v in col_map.items()},
     }
 
