@@ -1,8 +1,10 @@
 import csv
 import io
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -285,6 +287,99 @@ async def get_word_group(
     if not group:
         raise HTTPException(status_code=404, detail="Word group not found")
     return group
+
+
+@router.get("/word-groups/{group_id}/pdf")
+async def export_word_group_pdf(
+    group_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from urllib.parse import quote
+
+    from fpdf import FPDF
+
+    result = await db.execute(
+        select(WordGroup)
+        .options(selectinload(WordGroup.words))
+        .where(WordGroup.id == group_id, WordGroup.user_id == user.id)
+    )
+    group = result.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Word group not found")
+
+    font_path = "/app/fonts/NotoSansTC-Regular.otf"
+    if not os.path.exists(font_path):
+        raise HTTPException(status_code=500, detail="CJK font not found")
+
+    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    pdf.add_font("NotoSans", "", font_path, uni=True)
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # Title
+    pdf.set_font("NotoSans", size=16)
+    pdf.cell(0, 10, f"{group.title} ({group.saved_date})", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    # Table header
+    col_widths = [40, 35, 45, 50, 107]
+    headers = ["英文", "中文", "KK 音標", "故事", "例句"]
+    pdf.set_font("NotoSans", size=10)
+    pdf.set_fill_color(24, 144, 255)
+    pdf.set_text_color(255, 255, 255)
+    for i, h in enumerate(headers):
+        pdf.cell(col_widths[i], 8, h, border=1, fill=True, align="C")
+    pdf.ln()
+
+    # Table rows
+    pdf.set_font("NotoSans", size=9)
+    pdf.set_text_color(0, 0, 0)
+    for row_idx, w in enumerate(group.words):
+        if row_idx % 2 == 1:
+            pdf.set_fill_color(245, 245, 245)
+        else:
+            pdf.set_fill_color(255, 255, 255)
+
+        cells = [
+            w.english,
+            w.chinese or "",
+            w.kk_phonetic or "",
+            w.mnemonic or "",
+            w.example_sentence or "",
+        ]
+
+        # Calculate row height based on longest cell
+        max_lines = 1
+        for i, cell in enumerate(cells):
+            cell_width = col_widths[i] - 2
+            text_width = pdf.get_string_width(cell)
+            lines = max(1, int(text_width / cell_width) + 1)
+            max_lines = max(max_lines, lines)
+        row_height = max(7, max_lines * 5)
+
+        x_start = pdf.get_x()
+        y_start = pdf.get_y()
+
+        # Check if we need a new page
+        if y_start + row_height > pdf.h - 15:
+            pdf.add_page()
+            y_start = pdf.get_y()
+
+        for i, cell in enumerate(cells):
+            pdf.set_xy(x_start + sum(col_widths[:i]), y_start)
+            pdf.multi_cell(col_widths[i], row_height / max_lines, cell, border=1, fill=True)
+
+        pdf.set_xy(x_start, y_start + row_height)
+
+    buffer = io.BytesIO(pdf.output())
+    filename = f"{group.title}_{group.saved_date}.pdf"
+    encoded = quote(filename)
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"},
+    )
 
 
 @router.put("/words/{word_id}", response_model=WordOut)

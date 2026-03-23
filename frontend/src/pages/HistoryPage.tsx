@@ -3,6 +3,7 @@ import {
   Button,
   Card,
   DatePicker,
+  Dropdown,
   Input,
   message,
   Modal,
@@ -10,12 +11,51 @@ import {
   Table,
   Typography,
 } from "antd";
-import { DeleteOutlined, EditOutlined, SaveOutlined, SearchOutlined } from "@ant-design/icons";
+import { DeleteOutlined, DownloadOutlined, EditOutlined, SaveOutlined, SearchOutlined } from "@ant-design/icons";
 import type { WordGroupSummary, WordGroupOut, WordOut } from "../api";
-import { deleteWordGroup, getWordGroup, listWordGroups, updateWord } from "../api";
+import api, { deleteWordGroup, getWordGroup, listWordGroups, updateWord } from "../api";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
+
+function downloadCsv(detail: WordGroupOut) {
+  const headers = ["英文", "中文", "KK 音標", "故事", "例句"];
+  const rows = detail.words.map((w) => [
+    w.english,
+    w.chinese ?? "",
+    w.kk_phonetic ?? "",
+    w.mnemonic ?? "",
+    w.example_sentence ?? "",
+  ]);
+
+  const csvContent = [headers, ...rows]
+    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+
+  const BOM = "\uFEFF";
+  const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${detail.title}_${detail.saved_date}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadPdf(id: string) {
+  const res = await api.get(`/word-groups/${id}/pdf`, { responseType: "blob" });
+  const contentDisposition = res.headers["content-disposition"] || "";
+  const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+  const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "download.pdf";
+
+  const blob = new Blob([res.data], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function HistoryPage() {
   const [groups, setGroups] = useState<WordGroupSummary[]>([]);
@@ -79,6 +119,19 @@ export default function HistoryPage() {
     });
   };
 
+  const handleDownload = async (id: string, format: "csv" | "pdf") => {
+    try {
+      if (format === "csv") {
+        const data = await getWordGroup(id);
+        downloadCsv(data);
+      } else {
+        await downloadPdf(id);
+      }
+    } catch {
+      message.error("下載失敗");
+    }
+  };
+
   const updateEditWord = (index: number, field: keyof WordOut, value: string) => {
     setEditWords((prev) => {
       const next = [...prev];
@@ -106,7 +159,6 @@ export default function HistoryPage() {
       });
       await Promise.all(promises.filter(Boolean));
       message.success("儲存成功！");
-      // Refresh detail
       const refreshed = await getWordGroup(detail.id);
       setDetail(refreshed);
       setEditWords(refreshed.words.map((w) => ({ ...w })));
@@ -123,12 +175,25 @@ export default function HistoryPage() {
     { title: "單字數", dataIndex: "word_count", key: "word_count", width: 80, align: "center" as const },
     {
       title: "操作",
-      width: 120,
+      width: 200,
       render: (_: unknown, record: WordGroupSummary) => (
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => openDetail(record.id)}>
             編輯
           </Button>
+          <Dropdown
+            menu={{
+              items: [
+                { key: "csv", label: "CSV" },
+                { key: "pdf", label: "PDF" },
+              ],
+              onClick: ({ key }) => handleDownload(record.id, key as "csv" | "pdf"),
+            }}
+          >
+            <Button size="small" icon={<DownloadOutlined />}>
+              下載
+            </Button>
+          </Dropdown>
           <Button size="small" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
         </Space>
       ),
