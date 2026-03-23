@@ -7,7 +7,8 @@
 - **Frontend**: React + TypeScript + Vite + Ant Design
 - **Backend**: Python FastAPI + SQLAlchemy (async) + asyncpg
 - **Database**: PostgreSQL 16
-- **LLM**: OpenAI gpt-4o-mini
+- **LLM**: OpenAI gpt-5.4
+- **DB Migration**: Alembic
 - **部署**: Docker Compose
 
 ## 如何啟動
@@ -60,6 +61,23 @@ cd frontend
 npm install
 npm run dev
 ```
+
+## DB Schema 變更（Alembic Migration）
+
+當需要修改資料庫結構（加欄位、新增表等）：
+
+1. **修改 Model** — 編輯 `backend/app/models.py`
+2. **產生 Migration** —
+   ```bash
+   docker-compose exec backend alembic revision --autogenerate -m "describe your change"
+   ```
+3. **重啟服務** — 啟動時會自動執行 `alembic upgrade head`
+   ```bash
+   docker-compose down && docker-compose up --build
+   ```
+
+> 資料不受影響，不需要 `-v` 刪除 volume。
+> Migration 檔案在 `backend/alembic/versions/`，需一併 commit 進版控。
 
 ## 使用流程
 
