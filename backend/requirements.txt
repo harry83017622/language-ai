@@ -12,4 +12,5 @@ requests==2.32.3
 python-multipart==0.0.18
 fpdf2==2.8.3
 pydub==0.25.1
+psycopg2-binary==2.9.10
 

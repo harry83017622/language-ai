@@ -233,7 +233,7 @@ async def generate_video(
             "ffmpeg", "-y",
             "-f", "lavfi", "-i", f"color=c=black:s=1280x720:d={duration}",
             "-i", audio_path,
-            "-vf", f"subtitles={srt_path}:force_style='FontSize=28,PrimaryColour=&Hffffff,Alignment=2,MarginV=40'",
+            "-vf", f"subtitles={srt_path}:fontsdir=/app/fonts:force_style='FontName=Noto Sans CJK TC,FontSize=28,PrimaryColour=&Hffffff,Alignment=2,MarginV=40'",
             "-c:v", "libx264", "-preset", "fast", "-crf", "28",
             "-c:a", "aac", "-b:a", "128k",
             "-shortest",
@@ -318,3 +318,102 @@ async def delete_article(
     await db.delete(article)
     await db.commit()
     return {"ok": True}
+
+
+# --- Review MP4 (word-by-word with mnemonic) ---
+
+class ReviewWord(BaseModel):
+    english: str
+    chinese: str | None = None
+    kk_phonetic: str | None = None
+    mnemonic: str | None = None
+
+
+class ReviewVideoRequest(BaseModel):
+    words: list[ReviewWord]
+
+
+@router.post("/generate-review-video")
+async def generate_review_video(
+    request: ReviewVideoRequest,
+    user: User = Depends(get_current_user),
+):
+    if not request.words:
+        raise HTTPException(status_code=400, detail="No words provided")
+
+    segments: list[tuple[str, AudioSegment]] = []
+    pause = AudioSegment.silent(duration=800)
+
+    for w in request.words:
+        # TTS: read the English word
+        audio_bytes = await _generate_sentence_audio(w.english, "alloy")
+        segment = AudioSegment.from_mp3(io.BytesIO(audio_bytes))
+
+        # Build display text for subtitle
+        lines = [w.english]
+        if w.kk_phonetic:
+            lines.append(w.kk_phonetic)
+        if w.chinese:
+            lines.append(w.chinese)
+        if w.mnemonic:
+            lines.append(w.mnemonic)
+        display = "\\N".join(lines)  # ASS/SRT newline
+
+        segments.append((display, segment))
+
+    # Build combined audio + SRT
+    combined = AudioSegment.empty()
+    srt_lines = []
+    current_ms = 0
+
+    pause_ms = 800
+    for i, (display_text, segment) in enumerate(segments):
+        reading_ms = max(2000, int(len(display_text) * 50))
+        segment_ms = len(segment)
+
+        # Total time for this word: audio + reading silence + pause
+        total_ms = segment_ms + reading_ms + pause_ms
+
+        start = current_ms / 1000.0
+        end = (current_ms + segment_ms + reading_ms) / 1000.0
+
+        srt_lines.append(f"{i + 1}")
+        srt_lines.append(f"{_seconds_to_srt_time(start)} --> {_seconds_to_srt_time(end)}")
+        srt_lines.append(display_text.replace("\\N", "\n"))
+        srt_lines.append("")
+
+        combined += segment + AudioSegment.silent(duration=reading_ms) + AudioSegment.silent(duration=pause_ms)
+        current_ms += total_ms
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        audio_path = os.path.join(tmpdir, "audio.mp3")
+        srt_path = os.path.join(tmpdir, "subs.srt")
+        output_path = os.path.join(tmpdir, "review.mp4")
+
+        combined.export(audio_path, format="mp3")
+        with open(srt_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(srt_lines))
+
+        duration = len(combined) / 1000.0
+
+        cmd = [
+            "ffmpeg", "-y",
+            "-f", "lavfi", "-i", f"color=c=black:s=1280x720:d={duration}",
+            "-i", audio_path,
+            "-vf", f"subtitles={srt_path}:fontsdir=/app/fonts:force_style='FontName=Noto Sans CJK TC,FontSize=48,PrimaryColour=&Hffffff,Alignment=5,MarginV=10'",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "28",
+            "-c:a", "aac", "-b:a", "128k",
+            "-shortest",
+            output_path,
+        ]
+        subprocess.run(cmd, check=True, capture_output=True)
+
+        with open(output_path, "rb") as f:
+            video_bytes = f.read()
+
+    buffer = io.BytesIO(video_bytes)
+    return StreamingResponse(
+        buffer,
+        media_type="video/mp4",
+        headers={"Content-Disposition": "attachment; filename=review.mp4"},
+    )

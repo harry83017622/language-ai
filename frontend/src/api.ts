@@ -58,6 +58,7 @@ export interface WordOut {
   mnemonic: string | null;
   example_sentence: string | null;
   sort_order: number;
+  marked_for_review: boolean;
 }
 
 export interface WordGroupOut {
@@ -166,6 +167,22 @@ export async function downloadAudio(sentences: ArticleSentence[]): Promise<Blob>
 
 export async function downloadVideo(sentences: ArticleSentence[]): Promise<Blob> {
   const res = await api.post("/generate-video", { sentences }, { responseType: "blob", timeout: 300000 });
+  return res.data;
+}
+
+export async function batchMarkWords(wordIds: string[], marked: boolean): Promise<void> {
+  await api.put("/words/batch-mark", { word_ids: wordIds, marked });
+}
+
+export interface ReviewWord {
+  english: string;
+  chinese: string | null;
+  kk_phonetic: string | null;
+  mnemonic: string | null;
+}
+
+export async function generateReviewVideo(words: ReviewWord[]): Promise<Blob> {
+  const res = await api.post("/generate-review-video", { words }, { responseType: "blob", timeout: 600000 });
   return res.data;
 }
 

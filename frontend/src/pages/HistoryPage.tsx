@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Button,
   Card,
+  Checkbox,
   DatePicker,
   Dropdown,
   Input,
@@ -11,9 +12,23 @@ import {
   Table,
   Typography,
 } from "antd";
-import { DeleteOutlined, DownloadOutlined, EditOutlined, SaveOutlined, SearchOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  DownloadOutlined,
+  EditOutlined,
+  PlaySquareOutlined,
+  SaveOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
 import type { WordGroupSummary, WordGroupOut, WordOut } from "../api";
-import api, { deleteWordGroup, getWordGroup, listWordGroups, updateWord } from "../api";
+import api, {
+  batchMarkWords,
+  deleteWordGroup,
+  generateReviewVideo,
+  getWordGroup,
+  listWordGroups,
+  updateWord,
+} from "../api";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -67,9 +82,13 @@ export default function HistoryPage() {
   const [detail, setDetail] = useState<WordGroupOut | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // Editable state: local copy of words for editing
+  // Editable state
   const [editWords, setEditWords] = useState<WordOut[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Review video selection — backed by DB marked_for_review
+  const selectedWordIds = new Set(editWords.filter((w) => w.marked_for_review).map((w) => w.id));
+  const [videoLoading, setVideoLoading] = useState(false);
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -169,6 +188,63 @@ export default function HistoryPage() {
     }
   };
 
+  const toggleWordSelection = async (id: string) => {
+    const word = editWords.find((w) => w.id === id);
+    if (!word) return;
+    const newVal = !word.marked_for_review;
+    setEditWords((prev) => prev.map((w) => (w.id === id ? { ...w, marked_for_review: newVal } : w)));
+    try {
+      await batchMarkWords([id], newVal);
+    } catch {
+      // revert on failure
+      setEditWords((prev) => prev.map((w) => (w.id === id ? { ...w, marked_for_review: !newVal } : w)));
+      message.error("標記失敗");
+    }
+  };
+
+  const toggleAllWords = async () => {
+    const allSelected = editWords.length > 0 && selectedWordIds.size === editWords.length;
+    const newVal = !allSelected;
+    const ids = editWords.map((w) => w.id);
+    setEditWords((prev) => prev.map((w) => ({ ...w, marked_for_review: newVal })));
+    try {
+      await batchMarkWords(ids, newVal);
+    } catch {
+      setEditWords((prev) => prev.map((w) => ({ ...w, marked_for_review: !newVal })));
+      message.error("標記失敗");
+    }
+  };
+
+  const handleGenerateReviewVideo = async () => {
+    const selected = editWords.filter((w) => selectedWordIds.has(w.id));
+    if (!selected.length) {
+      message.warning("請勾選至少一個單字");
+      return;
+    }
+    setVideoLoading(true);
+    try {
+      const blob = await generateReviewVideo(
+        selected.map((w) => ({
+          english: w.english,
+          chinese: w.chinese,
+          kk_phonetic: w.kk_phonetic,
+          mnemonic: w.mnemonic,
+        }))
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `複習_${detail?.title ?? "review"}.mp4`;
+      a.click();
+      URL.revokeObjectURL(url);
+      message.success("複習 MP4 下載完成！");
+    } catch (e: any) {
+      message.error("MP4 生成失敗：" + (e?.response?.data?.detail || e.message));
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+
   const groupColumns = [
     { title: "標題", dataIndex: "title", key: "title" },
     { title: "日期", dataIndex: "saved_date", key: "saved_date", width: 130 },
@@ -202,9 +278,25 @@ export default function HistoryPage() {
 
   const wordColumns = [
     {
+      title: (
+        <Checkbox
+          checked={editWords.length > 0 && selectedWordIds.size === editWords.length}
+          indeterminate={selectedWordIds.size > 0 && selectedWordIds.size < editWords.length}
+          onChange={toggleAllWords}
+        />
+      ),
+      width: 50,
+      render: (_: unknown, record: WordOut) => (
+        <Checkbox
+          checked={selectedWordIds.has(record.id)}
+          onChange={() => toggleWordSelection(record.id)}
+        />
+      ),
+    },
+    {
       title: "英文",
       dataIndex: "english",
-      width: 130,
+      width: 120,
       render: (text: string, _: WordOut, index: number) => (
         <Input
           value={editWords[index]?.english ?? text}
@@ -215,7 +307,7 @@ export default function HistoryPage() {
     {
       title: "中文",
       dataIndex: "chinese",
-      width: 130,
+      width: 120,
       render: (text: string | null, _: WordOut, index: number) => (
         <Input
           value={editWords[index]?.chinese ?? text ?? ""}
@@ -226,7 +318,7 @@ export default function HistoryPage() {
     {
       title: "KK 音標",
       dataIndex: "kk_phonetic",
-      width: 160,
+      width: 150,
       render: (text: string | null, _: WordOut, index: number) => (
         <Input
           value={editWords[index]?.kk_phonetic ?? text ?? ""}
@@ -237,7 +329,7 @@ export default function HistoryPage() {
     {
       title: "故事",
       dataIndex: "mnemonic",
-      width: 160,
+      width: 150,
       render: (text: string | null, _: WordOut, index: number) => (
         <Input
           value={editWords[index]?.mnemonic ?? text ?? ""}
@@ -309,6 +401,14 @@ export default function HistoryPage() {
               loading={saving}
             >
               儲存修改
+            </Button>
+            <Button
+              icon={<PlaySquareOutlined />}
+              onClick={handleGenerateReviewVideo}
+              loading={videoLoading}
+              disabled={selectedWordIds.size === 0}
+            >
+              生成複習 MP4 ({selectedWordIds.size})
             </Button>
           </Space>
         }

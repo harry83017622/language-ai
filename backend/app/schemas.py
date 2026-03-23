@@ -68,6 +68,7 @@ class WordOut(BaseModel):
     mnemonic: str | None = None
     example_sentence: str | None = None
     sort_order: int
+    marked_for_review: bool = False
 
     model_config = {"from_attributes": True}
 

@@ -4,6 +4,7 @@ import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from pydantic import BaseModel as PydanticBaseModel
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -382,6 +383,29 @@ async def export_word_group_pdf(
     )
 
 
+class BatchMarkRequest(PydanticBaseModel):
+    word_ids: list[uuid.UUID]
+    marked: bool
+
+
+@router.put("/words/batch-mark")
+async def batch_mark_words(
+    payload: BatchMarkRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Word)
+        .join(WordGroup)
+        .where(Word.id.in_(payload.word_ids), WordGroup.user_id == user.id)
+    )
+    words = result.scalars().all()
+    for w in words:
+        w.marked_for_review = payload.marked
+    await db.commit()
+    return {"ok": True, "updated": len(words)}
+
+
 @router.put("/words/{word_id}", response_model=WordOut)
 async def update_word(
     word_id: uuid.UUID,
@@ -420,3 +444,5 @@ async def delete_word_group(
     await db.delete(group)
     await db.commit()
     return {"ok": True}
+
+
