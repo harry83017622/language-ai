@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Avatar, Button, Card, ConfigProvider, Layout, Menu, message, Spin, theme, Typography } from "antd";
-import { BookOutlined, HistoryOutlined, LogoutOutlined, SearchOutlined, SoundOutlined, UserOutlined } from "@ant-design/icons";
+import { BookOutlined, FormOutlined, HistoryOutlined, LogoutOutlined, SearchOutlined, SoundOutlined, UserOutlined } from "@ant-design/icons";
 import { GoogleLogin } from "@react-oauth/google";
 import zhTW from "antd/locale/zh_TW";
 import { useAuth } from "./auth";
@@ -8,12 +8,13 @@ import CreatePage from "./pages/CreatePage";
 import HistoryPage from "./pages/HistoryPage";
 import SearchPage from "./pages/SearchPage";
 import ArticlePage from "./pages/ArticlePage";
+import ReviewPage from "./pages/ReviewPage";
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
 function App() {
-  const [page, setPage] = useState<"create" | "history" | "search" | "article">("create");
+  const [page, setPage] = useState<"create" | "history" | "search" | "article" | "review">("create");
   const { user, login, logout, loading } = useAuth();
 
   if (loading) {
@@ -71,12 +72,13 @@ function App() {
             theme="dark"
             mode="horizontal"
             selectedKeys={[page]}
-            onClick={({ key }) => setPage(key as "create" | "history" | "search" | "article")}
+            onClick={({ key }) => setPage(key as "create" | "history" | "search" | "article" | "review")}
             items={[
               { key: "create", icon: <BookOutlined />, label: "新增單字" },
               { key: "history", icon: <HistoryOutlined />, label: "歷史紀錄" },
               { key: "search", icon: <SearchOutlined />, label: "搜尋單字" },
               { key: "article", icon: <SoundOutlined />, label: "文章生成" },
+              { key: "review", icon: <FormOutlined />, label: "複習" },
             ]}
             style={{ flex: 1 }}
           />
@@ -103,6 +105,7 @@ function App() {
           {page === "history" && <HistoryPage />}
           {page === "search" && <SearchPage />}
           {page === "article" && <ArticlePage />}
+          {page === "review" && <ReviewPage />}
         </Content>
       </Layout>
     </ConfigProvider>

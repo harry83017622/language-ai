@@ -68,3 +68,13 @@ class Article(Base):
     sentences: Mapped[list] = mapped_column(JSON, nullable=False)  # [{speaker?, text}, ...]
     used_words: Mapped[list] = mapped_column(JSON, nullable=False)  # ["word1", ...]
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReviewLog(Base):
+    __tablename__ = "review_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    word_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("words.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    result: Mapped[str] = mapped_column(String(32), nullable=False)  # "remember", "unsure", "forget"
+    created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

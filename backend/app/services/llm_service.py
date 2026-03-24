@@ -23,10 +23,12 @@ For each word the user provides, generate the requested fields:
   Good examples:
   - ambulance (救護車) → "阿不能死"
   - engage (訂婚) → "演給你"
-  - arrow (箭) → "哎喲"
+  - consult (諮詢) → "看上他"
   - pest (害蟲) → "拍死它"
   - dormitory (宿舍) → "刀沒投入"
   - calendar (日曆) → "可輪到"
+  - crucial (關鍵的) → "快學喔"
+  - assess (評估) → "我試試"
 
   Bad examples (DO NOT generate):
   - "安布蘭斯" ← pure transliteration, no meaning

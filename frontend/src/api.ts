@@ -174,14 +174,14 @@ export async function batchMarkWords(wordIds: string[], marked: boolean): Promis
   await api.put("/words/batch-mark", { word_ids: wordIds, marked });
 }
 
-export interface ReviewWord {
+export interface ReviewVideoWord {
   english: string;
   chinese: string | null;
   kk_phonetic: string | null;
   mnemonic: string | null;
 }
 
-export async function generateReviewVideo(words: ReviewWord[]): Promise<Blob> {
+export async function generateReviewVideo(words: ReviewVideoWord[]): Promise<Blob> {
   const res = await api.post("/generate-review-video", { words }, { responseType: "blob", timeout: 600000 });
   return res.data;
 }
@@ -225,6 +225,54 @@ export async function getArticle(id: string): Promise<ArticleDetail> {
 
 export async function deleteArticle(id: string): Promise<void> {
   await api.delete(`/articles/${id}`);
+}
+
+// --- Review ---
+
+export interface ReviewWord {
+  id: string;
+  english: string;
+  chinese: string | null;
+  kk_phonetic: string | null;
+  mnemonic: string | null;
+  example_sentence: string | null;
+}
+
+export async function getReviewWords(source: string, count: number): Promise<ReviewWord[]> {
+  const res = await api.get("/review/words", { params: { source, count } });
+  return res.data;
+}
+
+export async function logReview(wordId: string, result: string): Promise<void> {
+  await api.post("/review/log", { word_id: wordId, result });
+}
+
+export interface ReviewWordStat {
+  english: string;
+  chinese: string | null;
+  count: number;
+}
+
+export interface TimePeriodStats {
+  week: ReviewWordStat[];
+  month: ReviewWordStat[];
+  quarter: ReviewWordStat[];
+  all: ReviewWordStat[];
+}
+
+export interface ReviewStats {
+  total_reviews: number;
+  remember_count: number;
+  unsure_count: number;
+  forget_count: number;
+  remember_words: TimePeriodStats;
+  unsure_words: TimePeriodStats;
+  forget_words: TimePeriodStats;
+}
+
+export async function getReviewStats(): Promise<ReviewStats> {
+  const res = await api.get("/review/stats");
+  return res.data;
 }
 
 export default api;
