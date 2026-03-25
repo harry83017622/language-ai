@@ -313,7 +313,7 @@ async def export_word_group_pdf(
     if not os.path.exists(font_path):
         raise HTTPException(status_code=500, detail="CJK font not found")
 
-    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.add_font("NotoSans", "", font_path, uni=True)
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
@@ -324,7 +324,7 @@ async def export_word_group_pdf(
     pdf.ln(4)
 
     # Table header
-    col_widths = [40, 35, 45, 50, 107]
+    col_widths = [30, 25, 35, 35, 65]
     headers = ["英文", "中文", "KK 音標", "故事", "例句"]
     pdf.set_font("NotoSans", size=10)
     pdf.set_fill_color(24, 144, 255)
