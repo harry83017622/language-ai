@@ -256,10 +256,20 @@ export interface ReviewWordStat {
 }
 
 export interface TimePeriodStats {
+  today: ReviewWordStat[];
   week: ReviewWordStat[];
   month: ReviewWordStat[];
   quarter: ReviewWordStat[];
   all: ReviewWordStat[];
+}
+
+export interface WeeklyStat {
+  week_start: string;
+  week_end: string;
+  remember: number;
+  unsure: number;
+  forget: number;
+  total: number;
 }
 
 export interface ReviewStats {
@@ -270,6 +280,7 @@ export interface ReviewStats {
   remember_words: TimePeriodStats;
   unsure_words: TimePeriodStats;
   forget_words: TimePeriodStats;
+  weekly_trend: WeeklyStat[];
 }
 
 export async function getReviewStats(): Promise<ReviewStats> {
