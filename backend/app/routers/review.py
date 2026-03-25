@@ -47,10 +47,20 @@ class ReviewWordStat(BaseModel):
 
 
 class TimePeriodStats(BaseModel):
+    today: list[ReviewWordStat]
     week: list[ReviewWordStat]
     month: list[ReviewWordStat]
     quarter: list[ReviewWordStat]
     all: list[ReviewWordStat]
+
+
+class WeeklyStat(BaseModel):
+    week_start: str  # "2026-03-17"
+    week_end: str    # "2026-03-23"
+    remember: int
+    unsure: int
+    forget: int
+    total: int
 
 
 class ReviewStatsOut(BaseModel):
@@ -61,6 +71,7 @@ class ReviewStatsOut(BaseModel):
     remember_words: TimePeriodStats
     unsure_words: TimePeriodStats
     forget_words: TimePeriodStats
+    weekly_trend: list[WeeklyStat]
 
 
 # --- Weighted word selection ---
@@ -187,7 +198,9 @@ async def _top_by_result(db: AsyncSession, user_id: uuid.UUID, result: str, sinc
 
 async def _period_stats(db: AsyncSession, user_id: uuid.UUID, result: str) -> TimePeriodStats:
     now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     return TimePeriodStats(
+        today=await _top_by_result(db, user_id, result, today_start),
         week=await _top_by_result(db, user_id, result, now - timedelta(days=7)),
         month=await _top_by_result(db, user_id, result, now - timedelta(days=30)),
         quarter=await _top_by_result(db, user_id, result, now - timedelta(days=90)),
@@ -208,6 +221,35 @@ async def get_review_stats(
     count_result = await db.execute(count_stmt)
     counts = {r.result: r.cnt for r in count_result.all()}
 
+    # Weekly trend (last 12 weeks)
+    now = datetime.now(timezone.utc)
+    weekly_trend: list[WeeklyStat] = []
+    for i in range(11, -1, -1):
+        week_end = now - timedelta(days=now.weekday()) - timedelta(weeks=i)
+        week_start = week_end - timedelta(days=7)
+        week_end_ts = week_end.replace(hour=23, minute=59, second=59)
+
+        week_stmt = (
+            select(ReviewLog.result, func.count().label("cnt"))
+            .where(
+                ReviewLog.user_id == user.id,
+                ReviewLog.created_at >= week_start,
+                ReviewLog.created_at < week_end_ts,
+            )
+            .group_by(ReviewLog.result)
+        )
+        week_result = await db.execute(week_stmt)
+        week_counts = {r.result: r.cnt for r in week_result.all()}
+        r = week_counts.get("remember", 0)
+        u = week_counts.get("unsure", 0)
+        f = week_counts.get("forget", 0)
+        if r + u + f > 0:
+            weekly_trend.append(WeeklyStat(
+                week_start=week_start.strftime("%Y-%m-%d"),
+                week_end=(week_end - timedelta(days=1)).strftime("%Y-%m-%d"),
+                remember=r, unsure=u, forget=f, total=r + u + f,
+            ))
+
     return ReviewStatsOut(
         total_reviews=sum(counts.values()),
         remember_count=counts.get("remember", 0),
@@ -216,4 +258,5 @@ async def get_review_stats(
         remember_words=await _period_stats(db, user.id, "remember"),
         unsure_words=await _period_stats(db, user.id, "unsure"),
         forget_words=await _period_stats(db, user.id, "forget"),
+        weekly_trend=weekly_trend,
     )

@@ -206,9 +206,10 @@ export default function ReviewPage() {
                   label: category.label,
                   children: (
                     <Tabs
-                      defaultActiveKey="week"
+                      defaultActiveKey="today"
                       size="small"
                       items={[
+                        { key: "today", label: "本日", list: category.data.today },
                         { key: "week", label: "本週", list: category.data.week },
                         { key: "month", label: "本月", list: category.data.month },
                         { key: "quarter", label: "本季", list: category.data.quarter },
@@ -261,6 +262,46 @@ export default function ReviewPage() {
                   ),
                 }))}
               />
+              {stats.weekly_trend.length > 0 && (
+                <>
+                  <Title level={5}>每週複習趨勢</Title>
+                  <Table
+                    dataSource={stats.weekly_trend}
+                    columns={[
+                      {
+                        title: "週間",
+                        key: "week",
+                        width: 180,
+                        render: (_: unknown, r: { week_start: string; week_end: string }) =>
+                          `${r.week_start} ~ ${r.week_end}`,
+                      },
+                      {
+                        title: "記得",
+                        dataIndex: "remember",
+                        width: 80,
+                        render: (v: number) => <Tag color="green">{v}</Tag>,
+                      },
+                      {
+                        title: "不確定",
+                        dataIndex: "unsure",
+                        width: 80,
+                        render: (v: number) => <Tag color="orange">{v}</Tag>,
+                      },
+                      {
+                        title: "忘記",
+                        dataIndex: "forget",
+                        width: 80,
+                        render: (v: number) => <Tag color="red">{v}</Tag>,
+                      },
+                      { title: "總計", dataIndex: "total", width: 80 },
+                    ]}
+                    rowKey="week_start"
+                    pagination={false}
+                    size="small"
+                    scroll={{ y: 300 }}
+                  />
+                </>
+              )}
             </Space>
           ) : null}
         </Modal>
