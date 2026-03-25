@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar, Button, Card, ConfigProvider, Layout, Menu, message, Spin, theme, Typography } from "antd";
 import { BookOutlined, FormOutlined, HistoryOutlined, LogoutOutlined, SearchOutlined, SoundOutlined, UserOutlined } from "@ant-design/icons";
 import { GoogleLogin } from "@react-oauth/google";
@@ -13,9 +13,28 @@ import ReviewPage from "./pages/ReviewPage";
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
+type PageKey = "create" | "history" | "search" | "article" | "review";
+const VALID_PAGES: PageKey[] = ["create", "history", "search", "article", "review"];
+
+function getPageFromHash(): PageKey {
+  const hash = window.location.hash.replace("#/", "").split("?")[0];
+  return VALID_PAGES.includes(hash as PageKey) ? (hash as PageKey) : "create";
+}
+
 function App() {
-  const [page, setPage] = useState<"create" | "history" | "search" | "article" | "review">("create");
+  const [page, setPage] = useState<PageKey>(getPageFromHash);
   const { user, login, logout, loading } = useAuth();
+
+  const navigate = (key: PageKey) => {
+    window.location.hash = `#/${key}`;
+    setPage(key);
+  };
+
+  useEffect(() => {
+    const handler = () => setPage(getPageFromHash());
+    window.addEventListener("hashchange", handler);
+    return () => window.removeEventListener("hashchange", handler);
+  }, []);
 
   if (loading) {
     return (
@@ -72,7 +91,7 @@ function App() {
             theme="dark"
             mode="horizontal"
             selectedKeys={[page]}
-            onClick={({ key }) => setPage(key as "create" | "history" | "search" | "article" | "review")}
+            onClick={({ key }) => navigate(key as PageKey)}
             items={[
               { key: "create", icon: <BookOutlined />, label: "新增單字" },
               { key: "history", icon: <HistoryOutlined />, label: "歷史紀錄" },
