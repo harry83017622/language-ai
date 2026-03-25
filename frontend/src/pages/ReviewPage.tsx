@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Button,
   Card,
+  Checkbox,
+  InputNumber,
   Modal,
   Progress,
   Radio,
@@ -24,8 +26,8 @@ import {
   CloseCircleOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
-import type { ReviewWord, ReviewStats, ReviewWordStat } from "../api";
-import { getReviewWords, logReview, getReviewStats } from "../api";
+import type { ReviewWord, ReviewStats, ReviewWordStat, ExportWord } from "../api";
+import api, { getReviewWords, logReview, getReviewStats, exportTopWords } from "../api";
 
 const { Title, Text } = Typography;
 
@@ -50,6 +52,72 @@ export default function ReviewPage() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [stats, setStats] = useState<ReviewStats | null>(null);
+
+  // Export modal
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportData, setExportData] = useState<ExportWord[]>([]);
+  const [exportType, setExportType] = useState<string>("forget");
+  const [exportPeriod, setExportPeriod] = useState<string>("week");
+  const [exportLimit, setExportLimit] = useState(10);
+  const [exportFields, setExportFields] = useState<string[]>(["english", "chinese", "kk_phonetic", "mnemonic", "example_sentence"]);
+
+  const handleExport = async () => {
+    setExportLoading(true);
+    try {
+      const data = await exportTopWords({ result_type: exportType, period: exportPeriod, limit: exportLimit });
+      setExportData(data);
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleDownloadExportCsv = () => {
+    if (!exportData.length) return;
+    const fieldLabels: Record<string, string> = {
+      english: "英文", chinese: "中文", kk_phonetic: "KK 音標", mnemonic: "故事", example_sentence: "例句",
+    };
+    const headers = exportFields.map((f) => fieldLabels[f] || f);
+    headers.push("次數");
+    const rows = exportData.map((w) => {
+      const row = exportFields.map((f) => (w as Record<string, unknown>)[f] ?? "");
+      row.push(String(w.count));
+      return row;
+    });
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `review_top${exportLimit}_${exportType}_${exportPeriod}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadExportPdf = async () => {
+    try {
+      const res = await api.get("/review/export/pdf", {
+        params: {
+          result_type: exportType,
+          period: exportPeriod,
+          limit: exportLimit,
+          fields: exportFields.join(","),
+        },
+        responseType: "blob",
+      });
+      const blob = new Blob([res.data], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `review_top${exportLimit}_${exportType}_${exportPeriod}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      message.error("PDF 下載失敗");
+    }
+  };
 
   const handleOpenStats = async () => {
     setStatsOpen(true);
@@ -175,8 +243,88 @@ export default function ReviewPage() {
             <Button size="large" onClick={handleOpenStats} block>
               查看複習統計
             </Button>
+            <Button size="large" onClick={() => setExportOpen(true)} block>
+              匯出單字
+            </Button>
           </Space>
         </Card>
+
+        {/* Export modal */}
+        <Modal
+          title="匯出單字"
+          open={exportOpen}
+          onCancel={() => setExportOpen(false)}
+          footer={null}
+          width={750}
+        >
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Space wrap>
+              <span>類型：</span>
+              <Select value={exportType} onChange={setExportType} style={{ width: 110 }} options={[
+                { value: "forget", label: "忘記" },
+                { value: "unsure", label: "不確定" },
+                { value: "remember", label: "記得" },
+              ]} />
+              <span>時間：</span>
+              <Select value={exportPeriod} onChange={setExportPeriod} style={{ width: 110 }} options={[
+                { value: "today", label: "本日" },
+                { value: "week", label: "本週" },
+                { value: "month", label: "本月" },
+                { value: "quarter", label: "本季" },
+                { value: "all", label: "全部" },
+              ]} />
+              <span>Top：</span>
+              <InputNumber
+                min={1}
+                max={500}
+                value={exportLimit}
+                onChange={(v) => setExportLimit(v ?? 10)}
+                style={{ width: 80 }}
+              />
+            </Space>
+            <div>
+              <Text strong>包含欄位：</Text>
+              <Checkbox.Group
+                value={exportFields}
+                onChange={(v) => setExportFields(v as string[])}
+                style={{ marginLeft: 8 }}
+                options={[
+                  { label: "英文", value: "english" },
+                  { label: "中文", value: "chinese" },
+                  { label: "KK 音標", value: "kk_phonetic" },
+                  { label: "故事", value: "mnemonic" },
+                  { label: "例句", value: "example_sentence" },
+                ]}
+              />
+            </div>
+            <Button type="primary" onClick={handleExport} loading={exportLoading}>
+              查詢
+            </Button>
+            {exportData.length > 0 && (
+              <>
+                <Table
+                  dataSource={exportData}
+                  columns={[
+                    ...(exportFields.includes("english") ? [{ title: "英文", dataIndex: "english", key: "english", width: 120 }] : []),
+                    ...(exportFields.includes("chinese") ? [{ title: "中文", dataIndex: "chinese", key: "chinese", width: 100 }] : []),
+                    ...(exportFields.includes("kk_phonetic") ? [{ title: "KK 音標", dataIndex: "kk_phonetic", key: "kk_phonetic", width: 130 }] : []),
+                    ...(exportFields.includes("mnemonic") ? [{ title: "故事", dataIndex: "mnemonic", key: "mnemonic", width: 120 }] : []),
+                    ...(exportFields.includes("example_sentence") ? [{ title: "例句", dataIndex: "example_sentence", key: "example_sentence", ellipsis: true as const }] : []),
+                    { title: "次數", dataIndex: "count", key: "count", width: 70, render: (v: number) => <Tag color="blue">{v}</Tag> },
+                  ]}
+                  rowKey="english"
+                  pagination={false}
+                  size="small"
+                  scroll={{ y: 300 }}
+                />
+                <Space>
+                  <Button onClick={handleDownloadExportCsv}>下載 CSV</Button>
+                  <Button onClick={handleDownloadExportPdf}>下載 PDF</Button>
+                </Space>
+              </>
+            )}
+          </Space>
+        </Modal>
 
         <Modal
           title="複習統計"

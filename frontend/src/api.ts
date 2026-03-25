@@ -283,6 +283,24 @@ export interface ReviewStats {
   weekly_trend: WeeklyStat[];
 }
 
+export interface ExportWord {
+  english: string;
+  chinese: string | null;
+  kk_phonetic: string | null;
+  mnemonic: string | null;
+  example_sentence: string | null;
+  count: number;
+}
+
+export async function exportTopWords(params: {
+  result_type: string;
+  period: string;
+  limit: number;
+}): Promise<ExportWord[]> {
+  const res = await api.get("/review/export", { params });
+  return res.data;
+}
+
 export async function getReviewStats(): Promise<ReviewStats> {
   const res = await api.get("/review/stats");
   return res.data;

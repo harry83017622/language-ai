@@ -15,7 +15,9 @@ import {
 } from "antd";
 import {
   AudioOutlined,
+  CopyOutlined,
   DeleteOutlined,
+  DownloadOutlined,
   FolderOpenOutlined,
   PlaySquareOutlined,
   SaveOutlined,
@@ -239,7 +241,7 @@ export default function ArticlePage() {
             onClick={handleGenerate}
             loading={loading}
           >
-            生成文章
+            生成
           </Button>
         </Space>
       </Card>

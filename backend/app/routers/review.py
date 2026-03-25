@@ -1,8 +1,11 @@
+import io
+import os
 import random
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -259,4 +262,172 @@ async def get_review_stats(
         unsure_words=await _period_stats(db, user.id, "unsure"),
         forget_words=await _period_stats(db, user.id, "forget"),
         weekly_trend=weekly_trend,
+    )
+
+
+# --- Export top N words ---
+
+class ExportWordOut(BaseModel):
+    english: str
+    chinese: str | None = None
+    kk_phonetic: str | None = None
+    mnemonic: str | None = None
+    example_sentence: str | None = None
+    count: int
+
+
+@router.get("/export")
+async def export_top_words(
+    result_type: str = Query("forget"),  # "forget", "unsure", "remember"
+    period: str = Query("all"),  # "today", "week", "month", "quarter", "all"
+    limit: int = Query(10),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    now = datetime.now(timezone.utc)
+    since_map = {
+        "today": now.replace(hour=0, minute=0, second=0, microsecond=0),
+        "week": now - timedelta(days=7),
+        "month": now - timedelta(days=30),
+        "quarter": now - timedelta(days=90),
+        "all": None,
+    }
+    since = since_map.get(period)
+
+    stmt = (
+        select(
+            Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic,
+            Word.example_sentence, func.count().label("cnt"),
+        )
+        .join(ReviewLog, ReviewLog.word_id == Word.id)
+        .where(ReviewLog.user_id == user.id, ReviewLog.result == result_type)
+    )
+    if since:
+        stmt = stmt.where(ReviewLog.created_at >= since)
+    stmt = (
+        stmt.group_by(Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic, Word.example_sentence)
+        .order_by(func.count().desc())
+        .limit(limit)
+    )
+    res = await db.execute(stmt)
+    return [
+        ExportWordOut(
+            english=r.english, chinese=r.chinese, kk_phonetic=r.kk_phonetic,
+            mnemonic=r.mnemonic, example_sentence=r.example_sentence, count=r.cnt,
+        )
+        for r in res.all()
+    ]
+
+
+@router.get("/export/pdf")
+async def export_top_words_pdf(
+    result_type: str = Query("forget"),
+    period: str = Query("all"),
+    limit: int = Query(10),
+    fields: str = Query("english,chinese,kk_phonetic,mnemonic,example_sentence"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from urllib.parse import quote
+    from fpdf import FPDF
+
+    # Reuse same query logic
+    now = datetime.now(timezone.utc)
+    since_map = {
+        "today": now.replace(hour=0, minute=0, second=0, microsecond=0),
+        "week": now - timedelta(days=7),
+        "month": now - timedelta(days=30),
+        "quarter": now - timedelta(days=90),
+        "all": None,
+    }
+    since = since_map.get(period)
+
+    stmt = (
+        select(
+            Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic,
+            Word.example_sentence, func.count().label("cnt"),
+        )
+        .join(ReviewLog, ReviewLog.word_id == Word.id)
+        .where(ReviewLog.user_id == user.id, ReviewLog.result == result_type)
+    )
+    if since:
+        stmt = stmt.where(ReviewLog.created_at >= since)
+    stmt = (
+        stmt.group_by(Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic, Word.example_sentence)
+        .order_by(func.count().desc())
+        .limit(limit)
+    )
+    res = await db.execute(stmt)
+    rows = res.all()
+
+    # Build PDF
+    font_path = "/app/fonts/NotoSansTC-Regular.otf"
+    field_list = [f for f in fields.split(",") if f.strip()]
+    field_labels = {
+        "english": "英文", "chinese": "中文", "kk_phonetic": "KK 音標",
+        "mnemonic": "故事", "example_sentence": "例句",
+    }
+    period_labels = {"today": "本日", "week": "本週", "month": "本月", "quarter": "本季", "all": "全部"}
+    type_labels = {"forget": "忘記", "unsure": "不確定", "remember": "記得"}
+
+    pdf = FPDF(orientation="P", unit="mm", format="A4")
+    if os.path.exists(font_path):
+        pdf.add_font("NotoSans", "", font_path, uni=True)
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # Title
+    pdf.set_font("NotoSans", size=14)
+    title = f"複習匯出 — {type_labels.get(result_type, result_type)} Top {limit} ({period_labels.get(period, period)})"
+    pdf.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+
+    # Header
+    headers = [field_labels.get(f, f) for f in field_list] + ["次數"]
+    n_cols = len(headers)
+    page_width = 210 - 20  # portrait A4 minus margins
+    count_w = 20
+    col_w = (page_width - count_w) / max(len(field_list), 1)
+    col_widths = [col_w] * len(field_list) + [count_w]
+
+    pdf.set_font("NotoSans", size=9)
+    pdf.set_fill_color(24, 144, 255)
+    pdf.set_text_color(255, 255, 255)
+    for i, h in enumerate(headers):
+        pdf.cell(col_widths[i], 7, h, border=1, fill=True, align="C")
+    pdf.ln()
+
+    # Rows
+    pdf.set_text_color(0, 0, 0)
+    for row_idx, r in enumerate(rows):
+        if row_idx % 2 == 1:
+            pdf.set_fill_color(245, 245, 245)
+        else:
+            pdf.set_fill_color(255, 255, 255)
+
+        vals = [str(getattr(r, f, "") or "") for f in field_list] + [str(r.cnt)]
+        max_lines = 1
+        for i, v in enumerate(vals):
+            w = pdf.get_string_width(v)
+            lines = max(1, int(w / (col_widths[i] - 2)) + 1)
+            max_lines = max(max_lines, lines)
+        rh = max(6, max_lines * 5)
+
+        x0, y0 = pdf.get_x(), pdf.get_y()
+        if y0 + rh > pdf.h - 15:
+            pdf.add_page()
+            y0 = pdf.get_y()
+
+        for i, v in enumerate(vals):
+            pdf.set_xy(x0 + sum(col_widths[:i]), y0)
+            pdf.multi_cell(col_widths[i], rh / max_lines, v, border=1, fill=True)
+        pdf.set_xy(x0, y0 + rh)
+
+    buffer = io.BytesIO(pdf.output())
+    filename = f"review_top{limit}_{result_type}_{period}.pdf"
+    encoded = quote(filename)
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"},
     )
