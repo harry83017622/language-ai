@@ -41,6 +41,8 @@ class ForgottenWord(BaseModel):
 class ReviewWordStat(BaseModel):
     english: str
     chinese: str | None = None
+    kk_phonetic: str | None = None
+    mnemonic: str | None = None
     count: int
 
 
@@ -172,15 +174,15 @@ async def log_review(
 
 async def _top_by_result(db: AsyncSession, user_id: uuid.UUID, result: str, since: datetime | None) -> list[ReviewWordStat]:
     stmt = (
-        select(Word.english, Word.chinese, func.count().label("cnt"))
+        select(Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic, func.count().label("cnt"))
         .join(ReviewLog, ReviewLog.word_id == Word.id)
         .where(ReviewLog.user_id == user_id, ReviewLog.result == result)
     )
     if since:
         stmt = stmt.where(ReviewLog.created_at >= since)
-    stmt = stmt.group_by(Word.english, Word.chinese).order_by(func.count().desc())
+    stmt = stmt.group_by(Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic).order_by(func.count().desc())
     res = await db.execute(stmt)
-    return [ReviewWordStat(english=r.english, chinese=r.chinese, count=r.cnt) for r in res.all()]
+    return [ReviewWordStat(english=r.english, chinese=r.chinese, kk_phonetic=r.kk_phonetic, mnemonic=r.mnemonic, count=r.cnt) for r in res.all()]
 
 
 async def _period_stats(db: AsyncSession, user_id: uuid.UUID, result: str) -> TimePeriodStats:

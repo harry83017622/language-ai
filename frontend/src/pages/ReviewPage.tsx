@@ -12,6 +12,7 @@ import {
   Table,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
 } from "antd";
 import {
@@ -23,7 +24,7 @@ import {
   CloseCircleOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
-import type { ReviewWord, ReviewStats } from "../api";
+import type { ReviewWord, ReviewStats, ReviewWordStat } from "../api";
 import { getReviewWords, logReview, getReviewStats } from "../api";
 
 const { Title, Text } = Typography;
@@ -219,7 +220,25 @@ export default function ReviewPage() {
                           <Table
                             dataSource={period.list}
                             columns={[
-                              { title: "單字", dataIndex: "english", key: "english", width: 150 },
+                              {
+                                title: "單字",
+                                dataIndex: "english",
+                                key: "english",
+                                width: 150,
+                                render: (text: string, record: ReviewWordStat) => (
+                                  <Tooltip
+                                    title={
+                                      <div>
+                                        {record.kk_phonetic && <div>{record.kk_phonetic}</div>}
+                                        {record.mnemonic && <div>{record.mnemonic}</div>}
+                                        {!record.kk_phonetic && !record.mnemonic && <div>無額外資訊</div>}
+                                      </div>
+                                    }
+                                  >
+                                    <span style={{ cursor: "pointer", borderBottom: "1px dashed #999" }}>{text}</span>
+                                  </Tooltip>
+                                ),
+                              },
                               { title: "中文", dataIndex: "chinese", key: "chinese", width: 150 },
                               {
                                 title: "次數",

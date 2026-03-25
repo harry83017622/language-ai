@@ -250,6 +250,8 @@ export async function logReview(wordId: string, result: string): Promise<void> {
 export interface ReviewWordStat {
   english: string;
   chinese: string | null;
+  kk_phonetic: string | null;
+  mnemonic: string | null;
   count: number;
 }
 
