@@ -143,6 +143,7 @@ export async function searchWords(q: string): Promise<WordSearchResult[]> {
 export interface ArticleSentence {
   speaker: string | null;
   text: string;
+  chinese: string | null;
 }
 
 export interface GenerateArticleResponse {

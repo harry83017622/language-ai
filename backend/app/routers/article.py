@@ -34,6 +34,7 @@ VOICE_MAP = {
 class Sentence(BaseModel):
     speaker: str | None = None
     text: str
+    chinese: str | None = None
 
 
 class GenerateArticleRequest(BaseModel):
@@ -87,28 +88,34 @@ class AudioVideoRequest(BaseModel):
 
 ARTICLE_SYSTEM_PROMPT = """You are an English writing assistant for a Taiwanese student.
 Generate a short English article or dialogue using the provided vocabulary words.
+For each sentence, also provide a natural Traditional Chinese (繁體中文) translation.
 
 Rules:
 - Use approximately the specified ratio of the provided words (e.g., 90% means use ~90% of them)
+- You may change the tense (past, present, future), form (noun, verb, adjective), number (singular/plural), or objects of phrases to make the content more natural and fluent. For example: "look forward to it" can become "looking forward to the trip"
 - The content should be natural and readable, at an intermediate English level
 - Each sentence should be practical and educational
+- The Chinese translation should be natural, fluent, and accurate — not word-by-word translation
 
 For "article" mode:
-- Write a coherent article (3-6 paragraphs)
+- Write a coherent, well-structured article (3-6 paragraphs)
+- Use proper written English: formal tone, topic sentences, transitions, logical flow
+- The style should read like a real essay or news article, NOT like a conversation
 - Return sentences split by sentence (one per entry)
 - No speaker field needed
 
 For "dialogue" mode:
-- Write a natural conversation between exactly 2 people
+- Write a natural, realistic conversation between exactly 2 people
 - Use speaker labels: "A" and "B" only
-- Make the dialogue feel natural and conversational
+- Use natural spoken English: contractions (I'm, don't, gonna), fillers (well, you know, I mean), short sentences, interruptions, reactions (Oh really?, That's great!)
+- The dialogue should sound like real people talking, NOT like written text read aloud
 - Each line of dialogue is one entry with speaker and text
 
 Return a JSON object:
 {
   "title": "A short title for the article/dialogue",
-  "sentences": [{"speaker": null, "text": "sentence"}, ...] for article mode,
-              or [{"speaker": "A", "text": "line"}, {"speaker": "B", "text": "line"}, ...] for dialogue mode,
+  "sentences": [{"speaker": null, "text": "English sentence", "chinese": "中文翻譯"}, ...] for article mode,
+              or [{"speaker": "A", "text": "English line", "chinese": "中文翻譯"}, ...] for dialogue mode,
   "used_words": ["word1", "word2", ...] (list of provided words that were actually used)
 }
 Always return valid JSON and nothing else."""
@@ -199,7 +206,8 @@ async def generate_video(
         voice = VOICE_MAP.get(sentence.speaker or "", "alloy")
         audio_bytes = await _generate_sentence_audio(sentence.text, voice)
         segment = AudioSegment.from_mp3(io.BytesIO(audio_bytes))
-        display = f"{sentence.speaker}: {sentence.text}" if sentence.speaker else sentence.text
+        en_line = f"{sentence.speaker}: {sentence.text}" if sentence.speaker else sentence.text
+        display = f"{en_line}\n{sentence.chinese}" if sentence.chinese else en_line
         segments.append((display, segment))
 
     # Build combined audio and SRT
@@ -257,6 +265,7 @@ async def generate_video(
 class ArticlePdfRequest(BaseModel):
     title: str
     sentences: list[Sentence]
+    used_words: list[str] = []
 
 
 @router.post("/generate-article-pdf")
@@ -286,16 +295,47 @@ async def generate_article_pdf(
     pdf.cell(0, 10, f"{today_str} {request.title}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
+    import re
+
+    # Build regex for keyword highlighting (case-insensitive, word boundary)
+    if request.used_words:
+        kw_pattern = re.compile(
+            r'\b(' + '|'.join(re.escape(w) for w in sorted(request.used_words, key=len, reverse=True)) + r')\b',
+            re.IGNORECASE,
+        )
+    else:
+        kw_pattern = None
+
+    def write_highlighted(text: str, size: int, line_h: float):
+        """Write text with keywords in blue."""
+        pdf.set_font("NotoSans", size=size)
+        if not kw_pattern:
+            pdf.write(line_h, text)
+            return
+        parts = kw_pattern.split(text)
+        for part in parts:
+            if kw_pattern.match(part):
+                pdf.set_text_color(24, 144, 255)
+                pdf.write(line_h, part)
+                pdf.set_text_color(0, 0, 0)
+            else:
+                pdf.write(line_h, part)
+
     pdf.set_font("NotoSans", size=11)
     for s in request.sentences:
         if s.speaker:
+            pdf.set_text_color(100, 100, 100)
             pdf.set_font("NotoSans", size=11)
-            pdf.set_text_color(24, 144, 255)
             pdf.write(7, f"{s.speaker}: ")
             pdf.set_text_color(0, 0, 0)
-            pdf.multi_cell(0, 7, s.text)
-        else:
-            pdf.multi_cell(0, 7, s.text)
+        write_highlighted(s.text, 11, 7)
+        pdf.ln()
+        if s.chinese:
+            pdf.set_x(pdf.l_margin)
+            pdf.set_text_color(100, 100, 100)
+            pdf.set_font("NotoSans", size=10)
+            pdf.multi_cell(0, 6, s.chinese)
+            pdf.set_text_color(0, 0, 0)
         pdf.ln(2)
 
     buffer = io.BytesIO(pdf.output())

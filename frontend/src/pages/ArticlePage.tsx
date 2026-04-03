@@ -187,8 +187,12 @@ export default function ArticlePage() {
     const fullTitle = `${dayjs().format("YYYY-MM-DD")} ${result.title}`;
     const header = `${fullTitle}\n${"=".repeat(fullTitle.length)}\n\n`;
     const body = result.sentences
-      .map((s) => (s.speaker ? `${s.speaker}: ${s.text}` : s.text))
-      .join("\n");
+      .map((s) => {
+        const en = s.speaker ? `${s.speaker}: ${s.text}` : s.text;
+        const zh = s.chinese ? `   ${s.chinese}` : "";
+        return zh ? `${en}\n${zh}` : en;
+      })
+      .join("\n\n");
     return header + body;
   };
 
@@ -213,7 +217,7 @@ export default function ArticlePage() {
     try {
       const res = await api.post(
         "/generate-article-pdf",
-        { title: result.title, sentences: result.sentences },
+        { title: result.title, sentences: result.sentences, used_words: result.used_words },
         { responseType: "blob" }
       );
       const blob = new Blob([res.data], { type: "application/pdf" });
@@ -330,18 +334,25 @@ export default function ArticlePage() {
             }}
           >
             {result.sentences.map((s, i) => (
-              <Paragraph key={i} style={{ marginBottom: 8 }}>
-                {s.speaker && (
-                  <Tag color={
-                    s.speaker === "A" ? "blue" :
-                    s.speaker === "B" ? "green" :
-                    s.speaker === "C" ? "orange" : "purple"
-                  }>
-                    {s.speaker}
-                  </Tag>
+              <div key={i} style={{ marginBottom: 12 }}>
+                <Paragraph style={{ marginBottom: 2 }}>
+                  {s.speaker && (
+                    <Tag color={
+                      s.speaker === "A" ? "blue" :
+                      s.speaker === "B" ? "green" :
+                      s.speaker === "C" ? "orange" : "purple"
+                    }>
+                      {s.speaker}
+                    </Tag>
+                  )}
+                  {highlightText(s.text)}
+                </Paragraph>
+                {s.chinese && (
+                  <Text type="secondary" style={{ fontSize: 13, paddingLeft: s.speaker ? 32 : 0 }}>
+                    {s.chinese}
+                  </Text>
                 )}
-                {highlightText(s.text)}
-              </Paragraph>
+              </div>
             ))}
           </Card>
 

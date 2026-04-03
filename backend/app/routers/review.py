@@ -397,7 +397,7 @@ async def export_top_words_pdf(
     # Calculate column widths dynamically based on actual content
     pdf.set_font("NotoSansCJK", size=9)
     all_cols = field_list + ["cnt"]
-    min_col_w = 12  # minimum column width
+    min_col_w = 18  # minimum column width (must fit at least one CJK char + padding)
 
     # Measure max content width per column (header + data)
     max_widths: list[float] = []
@@ -445,7 +445,7 @@ async def export_top_words_pdf(
         # Calculate row height: use dry_run multi_cell with inner width
         max_h = line_h
         for i, v in enumerate(vals):
-            inner_w = col_widths[i] - 2 * pad
+            inner_w = max(col_widths[i] - 2 * pad, 5)
             result = pdf.multi_cell(inner_w, line_h, v, dry_run=True, output="HEIGHT")
             max_h = max(max_h, result)
         row_h = max_h
@@ -463,7 +463,7 @@ async def export_top_words_pdf(
         # Write text clipped within each cell
         for i, v in enumerate(vals):
             cx = x0 + sum(col_widths[:i])
-            inner_w = col_widths[i] - 2 * pad
+            inner_w = max(col_widths[i] - 2 * pad, 5)
             with pdf.local_context():
                 pdf.set_xy(cx + pad, y0)
                 with pdf.rect_clip(cx, y0, col_widths[i], row_h):
