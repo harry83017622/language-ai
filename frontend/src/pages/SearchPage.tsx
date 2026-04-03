@@ -37,6 +37,7 @@ export default function SearchPage() {
       setResults((prev) =>
         prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
       );
+      message.success("已更新");
     } catch {
       message.error("更新失敗");
     }
@@ -51,8 +52,7 @@ export default function SearchPage() {
         <Space size={2}>
           <Input
             defaultValue={text}
-            onBlur={(e) => handleCellSave(record.id, "english", e.target.value, text)}
-            onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+            onPressEnter={(e) => handleCellSave(record.id, "english", (e.target as HTMLInputElement).value, text)}
             style={{ flex: 1 }}
           />
           <SpeakButton text={text} />
@@ -66,8 +66,7 @@ export default function SearchPage() {
       render: (text: string | null, record: WordSearchResult) => (
         <Input
           defaultValue={text ?? ""}
-          onBlur={(e) => handleCellSave(record.id, "chinese", e.target.value, text)}
-          onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+          onPressEnter={(e) => handleCellSave(record.id, "chinese", (e.target as HTMLInputElement).value, text)}
         />
       ),
     },
@@ -78,8 +77,7 @@ export default function SearchPage() {
       render: (text: string | null, record: WordSearchResult) => (
         <Input
           defaultValue={text ?? ""}
-          onBlur={(e) => handleCellSave(record.id, "kk_phonetic", e.target.value, text)}
-          onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+          onPressEnter={(e) => handleCellSave(record.id, "kk_phonetic", (e.target as HTMLInputElement).value, text)}
         />
       ),
     },
@@ -90,8 +88,7 @@ export default function SearchPage() {
       render: (text: string | null, record: WordSearchResult) => (
         <Input
           defaultValue={text ?? ""}
-          onBlur={(e) => handleCellSave(record.id, "mnemonic", e.target.value, text)}
-          onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+          onPressEnter={(e) => handleCellSave(record.id, "mnemonic", (e.target as HTMLInputElement).value, text)}
         />
       ),
     },
@@ -102,7 +99,12 @@ export default function SearchPage() {
         <Input.TextArea
           defaultValue={text ?? ""}
           autoSize={{ minRows: 1, maxRows: 3 }}
-          onBlur={(e) => handleCellSave(record.id, "example_sentence", e.target.value, text)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleCellSave(record.id, "example_sentence", (e.target as HTMLTextAreaElement).value, text);
+            }
+          }}
         />
       ),
     },
