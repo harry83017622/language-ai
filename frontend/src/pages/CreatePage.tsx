@@ -4,12 +4,14 @@ import {
   Card,
   Checkbox,
   DatePicker,
+  Dropdown,
   Input,
   message,
   Modal,
   Space,
   Spin,
   Table,
+  Tag,
   Tooltip,
   Typography,
   Upload,
@@ -17,6 +19,8 @@ import {
 import {
   ClearOutlined,
   DeleteOutlined,
+  FileOutlined,
+  FolderOpenOutlined,
   PlusOutlined,
   ReloadOutlined,
   SaveOutlined,
@@ -60,37 +64,105 @@ const newRow = (): WordRow => ({
   generated: false,
 });
 
-const STORAGE_KEY = "createPage_draft";
+const DRAFTS_KEY = "createPage_drafts";
+const ACTIVE_KEY = "createPage_activeDraft";
 
-function loadDraft(): { rows: WordRow[]; groupTitle: string; savedDate: string } | null {
+interface DraftData {
+  rows: WordRow[];
+  groupTitle: string;
+  savedDate: string;
+}
+
+function loadAllDrafts(): Record<string, DraftData> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(DRAFTS_KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* ignore */ }
-  return null;
+  return {};
 }
 
-function saveDraftData(data: { rows: WordRow[]; groupTitle: string; savedDate: string }) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+function saveAllDrafts(drafts: Record<string, DraftData>) {
+  localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
 }
 
-function clearDraft() {
-  localStorage.removeItem(STORAGE_KEY);
+function getActiveDraftName(): string | null {
+  return localStorage.getItem(ACTIVE_KEY);
+}
+
+function setActiveDraftName(name: string | null) {
+  if (name) {
+    localStorage.setItem(ACTIVE_KEY, name);
+  } else {
+    localStorage.removeItem(ACTIVE_KEY);
+  }
 }
 
 export default function CreatePage() {
-  const draft = loadDraft();
-  const [rows, setRows] = useState<WordRow[]>(draft?.rows ?? [newRow()]);
-  const [groupTitle, setGroupTitle] = useState(draft?.groupTitle ?? "");
-  const [savedDate, setSavedDate] = useState(draft?.savedDate ?? dayjs().format("YYYY-MM-DD"));
+  const allDrafts = loadAllDrafts();
+  const activeName = getActiveDraftName();
+  const activeDraft = activeName ? allDrafts[activeName] : null;
+
+  const [rows, setRows] = useState<WordRow[]>(activeDraft?.rows ?? [newRow()]);
+  const [groupTitle, setGroupTitle] = useState(activeDraft?.groupTitle ?? "");
+  const [savedDate, setSavedDate] = useState(activeDraft?.savedDate ?? dayjs().format("YYYY-MM-DD"));
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null);
+  const [currentDraftName, setCurrentDraftName] = useState<string | null>(activeName);
+  const [draftNames, setDraftNames] = useState<string[]>(Object.keys(allDrafts));
 
-  // Auto-save draft
+  // Auto-save to current draft
   useEffect(() => {
-    saveDraftData({ rows, groupTitle, savedDate });
-  }, [rows, groupTitle, savedDate]);
+    if (currentDraftName) {
+      const drafts = loadAllDrafts();
+      drafts[currentDraftName] = { rows, groupTitle, savedDate };
+      saveAllDrafts(drafts);
+      setActiveDraftName(currentDraftName);
+    }
+  }, [rows, groupTitle, savedDate, currentDraftName]);
+
+  const handleSaveDraft = () => {
+    const name = currentDraftName || groupTitle.trim() || `暫存 ${dayjs().format("MM/DD HH:mm")}`;
+    const drafts = loadAllDrafts();
+    drafts[name] = { rows, groupTitle, savedDate };
+    saveAllDrafts(drafts);
+    setCurrentDraftName(name);
+    setActiveDraftName(name);
+    setDraftNames(Object.keys(drafts));
+    message.success(`已暫存「${name}」`);
+  };
+
+  const handleLoadDraft = (name: string) => {
+    const drafts = loadAllDrafts();
+    const d = drafts[name];
+    if (d) {
+      setRows(d.rows);
+      setGroupTitle(d.groupTitle);
+      setSavedDate(d.savedDate);
+      setCurrentDraftName(name);
+      setActiveDraftName(name);
+    }
+  };
+
+  const handleDeleteDraft = (name: string) => {
+    const drafts = loadAllDrafts();
+    delete drafts[name];
+    saveAllDrafts(drafts);
+    setDraftNames(Object.keys(drafts));
+    if (currentDraftName === name) {
+      setCurrentDraftName(null);
+      setActiveDraftName(null);
+    }
+    message.success(`已刪除暫存「${name}」`);
+  };
+
+  const handleNewDraft = () => {
+    setRows([newRow()]);
+    setGroupTitle("");
+    setSavedDate(dayjs().format("YYYY-MM-DD"));
+    setCurrentDraftName(null);
+    setActiveDraftName(null);
+  };
 
   const updateRow = (key: string, field: string, value: unknown) => {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
@@ -108,15 +180,22 @@ export default function CreatePage() {
   const handleClearAll = () => {
     Modal.confirm({
       title: "確認清除？",
-      content: "將清除所有輸入和生成的內容",
+      content: "將清除當前輸入和生成的內容（已暫存的不受影響）",
       okText: "清除",
       okType: "danger",
       cancelText: "取消",
       onOk: () => {
-        clearDraft();
+        if (currentDraftName) {
+          const drafts = loadAllDrafts();
+          delete drafts[currentDraftName];
+          saveAllDrafts(drafts);
+          setDraftNames(Object.keys(drafts));
+        }
         setRows([newRow()]);
         setGroupTitle("");
         setSavedDate(dayjs().format("YYYY-MM-DD"));
+        setCurrentDraftName(null);
+        setActiveDraftName(null);
       },
     });
   };
@@ -249,10 +328,17 @@ export default function CreatePage() {
         })),
       });
       message.success("儲存成功！");
-      clearDraft();
+      if (currentDraftName) {
+        const drafts = loadAllDrafts();
+        delete drafts[currentDraftName];
+        saveAllDrafts(drafts);
+        setDraftNames(Object.keys(drafts));
+      }
       setRows([newRow()]);
       setGroupTitle("");
       setSavedDate(dayjs().format("YYYY-MM-DD"));
+      setCurrentDraftName(null);
+      setActiveDraftName(null);
     } catch (e: any) {
       message.error("儲存失敗：" + (e?.response?.data?.detail || e.message));
     } finally {
@@ -383,7 +469,39 @@ export default function CreatePage() {
   // --- Render ---
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: 24 }}>
-      <Title level={2}>新增單字</Title>
+      <Space style={{ marginBottom: 16, width: "100%", justifyContent: "space-between" }}>
+        <Space>
+          <Title level={2} style={{ margin: 0 }}>新增單字</Title>
+          {currentDraftName && <Tag color="blue">{currentDraftName}</Tag>}
+        </Space>
+        <Space>
+          <Button icon={<FileOutlined />} onClick={handleNewDraft}>新建</Button>
+          <Button icon={<SaveOutlined />} onClick={handleSaveDraft}>暫存</Button>
+          {draftNames.length > 0 && (
+            <Dropdown
+              menu={{
+                items: draftNames.map((name) => ({
+                  key: name,
+                  label: (
+                    <Space style={{ width: "100%", justifyContent: "space-between" }}>
+                      <span onClick={() => handleLoadDraft(name)}>{name}</span>
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteDraft(name); }}
+                      />
+                    </Space>
+                  ),
+                })),
+              }}
+            >
+              <Button icon={<FolderOpenOutlined />}>載入暫存 ({draftNames.length})</Button>
+            </Dropdown>
+          )}
+        </Space>
+      </Space>
 
       <Card>
         <Space style={{ marginBottom: 16, width: "100%" }} direction="vertical">
