@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import dayjs from "dayjs";
 import {
   Button,
   Card,
@@ -145,7 +146,7 @@ export default function ArticlePage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${result.title}.mp3`;
+      a.download = getArticleFilename("mp3");
       a.click();
       URL.revokeObjectURL(url);
       message.success("MP3 下載完成！");
@@ -164,7 +165,7 @@ export default function ArticlePage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${result.title}.mp4`;
+      a.download = getArticleFilename("mp4");
       a.click();
       URL.revokeObjectURL(url);
       message.success("MP4 下載完成！");
@@ -175,11 +176,19 @@ export default function ArticlePage() {
     }
   };
 
+  const getArticleFilename = (ext: string) => {
+    const date = dayjs().format("YYYY-MM-DD");
+    const title = result?.title ?? "article";
+    return `${date}_${title}.${ext}`;
+  };
+
   const getPlainText = () => {
     if (!result) return "";
-    return result.sentences
+    const header = `${result.title}\n${"=".repeat(result.title.length)}\n\n`;
+    const body = result.sentences
       .map((s) => (s.speaker ? `${s.speaker}: ${s.text}` : s.text))
       .join("\n");
+    return header + body;
   };
 
   const handleCopyText = () => {
@@ -193,7 +202,7 @@ export default function ArticlePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${result.title}.txt`;
+    a.download = getArticleFilename("txt");
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -210,7 +219,7 @@ export default function ArticlePage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${result.title}.pdf`;
+      a.download = getArticleFilename("pdf");
       a.click();
       URL.revokeObjectURL(url);
     } catch {

@@ -269,9 +269,14 @@ async def generate_article_pdf(
 
     font_path = "/app/fonts/NotoSansTC-Regular.otf"
 
+    font_path_latin = "/app/fonts/NotoSans-Regular.ttf"
+
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     if os.path.exists(font_path):
         pdf.add_font("NotoSans", "", font_path, uni=True)
+    if os.path.exists(font_path_latin):
+        pdf.add_font("NotoSansLatin", "", font_path_latin, uni=True)
+        pdf.set_fallback_fonts(["NotoSansLatin"])
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
