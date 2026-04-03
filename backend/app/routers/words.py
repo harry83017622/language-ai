@@ -290,6 +290,53 @@ async def get_word_group(
     return group
 
 
+@router.get("/word-groups/{group_id}/csv")
+async def export_word_group_csv(
+    group_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from urllib.parse import quote
+    from app.services.file_store import save_file
+
+    result = await db.execute(
+        select(WordGroup)
+        .options(selectinload(WordGroup.words))
+        .where(WordGroup.id == group_id, WordGroup.user_id == user.id)
+    )
+    group = result.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Word group not found")
+
+    headers = ["英文", "中文", "KK 音標", "故事", "例句"]
+    rows = []
+    for w in group.words:
+        rows.append([
+            w.english,
+            w.chinese or "",
+            w.kk_phonetic or "",
+            w.mnemonic or "",
+            w.example_sentence or "",
+        ])
+
+    lines = [",".join(f'"{h}"' for h in headers)]
+    for row in rows:
+        lines.append(",".join(f'"{c.replace(chr(34), chr(34)+chr(34))}"' for c in row))
+    csv_content = "\ufeff" + "\n".join(lines)
+    csv_bytes = csv_content.encode("utf-8")
+
+    filename = f"{group.title}_{group.saved_date}.csv"
+    await save_file(db, user.id, filename, "csv", csv_bytes)
+
+    buffer = io.BytesIO(csv_bytes)
+    encoded = quote(filename)
+    return StreamingResponse(
+        buffer,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"},
+    )
+
+
 @router.get("/word-groups/{group_id}/pdf")
 async def export_word_group_pdf(
     group_id: uuid.UUID,
@@ -378,8 +425,13 @@ async def export_word_group_pdf(
 
         pdf.set_xy(x_start, y_start + row_height)
 
-    buffer = io.BytesIO(pdf.output())
+    pdf_bytes = pdf.output()
+    # Save to file store
+    from app.services.file_store import save_file
     filename = f"{group.title}_{group.saved_date}.pdf"
+    await save_file(db, user.id, filename, "pdf", pdf_bytes)
+
+    buffer = io.BytesIO(pdf_bytes)
     encoded = quote(filename)
     return StreamingResponse(
         buffer,

@@ -75,31 +75,30 @@ export default function ReviewPage() {
     }
   };
 
-  const handleDownloadExportCsv = () => {
-    if (!exportData.length) return;
-    const fieldLabels: Record<string, string> = {
-      english: "英文", chinese: "中文", kk_phonetic: "KK 音標", mnemonic: "故事", example_sentence: "例句",
-    };
-    const headers = exportFields.map((f) => fieldLabels[f] || f);
-    headers.push("次數");
-    const rows = exportData.map((w) => {
-      const row = exportFields.map((f) => (w as Record<string, unknown>)[f] ?? "");
-      row.push(String(w.count));
-      return row;
-    });
-    const titleRow = [`${dayjs().format("YYYY-MM-DD")} ${typeLabel} Top${exportLimit} ${periodLabel}`];
-    const csv = [titleRow, [], headers, ...rows]
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    const typeLabel = { forget: "忘記", unsure: "不確定", remember: "記得" }[exportType] || exportType;
-    const periodLabel = { today: "本日", week: "本週", month: "本月", quarter: "本季", all: "全部" }[exportPeriod] || exportPeriod;
-    a.download = `${dayjs().format("YYYY-MM-DD")}_${typeLabel}_Top${exportLimit}_${periodLabel}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownloadExportCsv = async () => {
+    try {
+      const res = await api.get("/review/export/csv", {
+        params: {
+          result_type: exportType,
+          period: exportPeriod,
+          limit: exportLimit,
+          fields: exportFields.join(","),
+        },
+        responseType: "blob",
+      });
+      const contentDisposition = res.headers["content-disposition"] || "";
+      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+      const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "export.csv";
+      const blob = new Blob([res.data], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      message.error("CSV 下載失敗");
+    }
   };
 
   const handleDownloadExportPdf = async () => {

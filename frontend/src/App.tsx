@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Avatar, Button, Card, ConfigProvider, Layout, Menu, message, Spin, theme, Typography } from "antd";
-import { BookOutlined, FormOutlined, HistoryOutlined, LogoutOutlined, SearchOutlined, SoundOutlined, UserOutlined } from "@ant-design/icons";
+import { BookOutlined, FormOutlined, HistoryOutlined, LogoutOutlined, MailOutlined, SearchOutlined, SoundOutlined, UserOutlined } from "@ant-design/icons";
 import { GoogleLogin } from "@react-oauth/google";
 import zhTW from "antd/locale/zh_TW";
 import { useAuth } from "./auth";
@@ -9,12 +9,13 @@ import HistoryPage from "./pages/HistoryPage";
 import SearchPage from "./pages/SearchPage";
 import ArticlePage from "./pages/ArticlePage";
 import ReviewPage from "./pages/ReviewPage";
+import EmailPage from "./pages/EmailPage";
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
 
-type PageKey = "create" | "history" | "search" | "article" | "review";
-const VALID_PAGES: PageKey[] = ["create", "history", "search", "article", "review"];
+type PageKey = "create" | "history" | "search" | "article" | "review" | "email";
+const VALID_PAGES: PageKey[] = ["create", "history", "search", "article", "review", "email"];
 
 function getPageFromHash(): PageKey {
   const hash = window.location.hash.replace("#/", "").split("?")[0];
@@ -98,6 +99,7 @@ function App() {
               { key: "search", icon: <SearchOutlined />, label: "搜尋單字" },
               { key: "article", icon: <SoundOutlined />, label: "文章生成" },
               { key: "review", icon: <FormOutlined />, label: "複習" },
+              { key: "email", icon: <MailOutlined />, label: "寄信" },
             ]}
             style={{ flex: 1 }}
           />
@@ -125,6 +127,7 @@ function App() {
           {page === "search" && <SearchPage />}
           {page === "article" && <ArticlePage />}
           {page === "review" && <ReviewPage />}
+          {page === "email" && <EmailPage />}
         </Content>
       </Layout>
     </ConfigProvider>

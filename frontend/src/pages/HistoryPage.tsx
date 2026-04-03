@@ -34,26 +34,17 @@ import api, {
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
-function downloadCsv(detail: WordGroupOut) {
-  const headers = ["英文", "中文", "KK 音標", "故事", "例句"];
-  const rows = detail.words.map((w) => [
-    w.english,
-    w.chinese ?? "",
-    w.kk_phonetic ?? "",
-    w.mnemonic ?? "",
-    w.example_sentence ?? "",
-  ]);
+async function downloadCsv(id: string) {
+  const res = await api.get(`/word-groups/${id}/csv`, { responseType: "blob" });
+  const contentDisposition = res.headers["content-disposition"] || "";
+  const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+  const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "download.csv";
 
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
-    .join("\n");
-
-  const BOM = "\uFEFF";
-  const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([res.data], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${detail.title}_${detail.saved_date}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -90,6 +81,7 @@ export default function HistoryPage() {
   // Review video selection — backed by DB marked_for_review
   const selectedWordIds = new Set(editWords.filter((w) => w.marked_for_review).map((w) => w.id));
   const [videoLoading, setVideoLoading] = useState(false);
+
 
   const fetchGroups = async () => {
     setLoading(true);
@@ -142,8 +134,7 @@ export default function HistoryPage() {
   const handleDownload = async (id: string, format: "csv" | "pdf") => {
     try {
       if (format === "csv") {
-        const data = await getWordGroup(id);
-        downloadCsv(data);
+        await downloadCsv(id);
       } else {
         await downloadPdf(id);
       }

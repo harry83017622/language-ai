@@ -162,6 +162,7 @@ async def _generate_sentence_audio(text: str, voice: str) -> bytes:
 async def generate_audio(
     request: AudioVideoRequest,
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     combined = AudioSegment.empty()
     pause = AudioSegment.silent(duration=500)  # 500ms between sentences
@@ -174,10 +175,14 @@ async def generate_audio(
 
     buffer = io.BytesIO()
     combined.export(buffer, format="mp3")
-    buffer.seek(0)
+    mp3_bytes = buffer.getvalue()
+
+    from app.services.file_store import save_file
+    from datetime import datetime as dt3
+    await save_file(db, user.id, f"{dt3.now().strftime('%Y-%m-%d')}_article.mp3", "mp3", mp3_bytes)
 
     return StreamingResponse(
-        buffer,
+        io.BytesIO(mp3_bytes),
         media_type="audio/mpeg",
         headers={"Content-Disposition": "attachment; filename=article.mp3"},
     )
@@ -197,6 +202,7 @@ def _seconds_to_srt_time(seconds: float) -> str:
 async def generate_video(
     request: AudioVideoRequest,
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     # Generate audio for each sentence and track timing
     segments: list[tuple[str, AudioSegment]] = []
@@ -252,6 +258,10 @@ async def generate_video(
         with open(output_path, "rb") as f:
             video_bytes = f.read()
 
+    from app.services.file_store import save_file
+    from datetime import datetime as dt4
+    await save_file(db, user.id, f"{dt4.now().strftime('%Y-%m-%d')}_article.mp4", "mp4", video_bytes)
+
     buffer = io.BytesIO(video_bytes)
     return StreamingResponse(
         buffer,
@@ -272,6 +282,7 @@ class ArticlePdfRequest(BaseModel):
 async def generate_article_pdf(
     request: ArticlePdfRequest,
     user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     from urllib.parse import quote
     from fpdf import FPDF
@@ -338,8 +349,13 @@ async def generate_article_pdf(
             pdf.set_text_color(0, 0, 0)
         pdf.ln(2)
 
-    buffer = io.BytesIO(pdf.output())
-    filename = f"{request.title}.pdf"
+    pdf_bytes = pdf.output()
+    from app.services.file_store import save_file
+    from datetime import datetime as dt2
+    filename = f"{dt2.now().strftime('%Y-%m-%d')}_{request.title}.pdf"
+    await save_file(db, user.id, filename, "pdf", pdf_bytes)
+
+    buffer = io.BytesIO(pdf_bytes)
     encoded = quote(filename)
     return StreamingResponse(
         buffer,

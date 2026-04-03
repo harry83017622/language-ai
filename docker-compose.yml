@@ -21,6 +21,10 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      SMTP_EMAIL: ${SMTP_EMAIL}
+      SMTP_APP_PASSWORD: ${SMTP_APP_PASSWORD}
+    volumes:
+      - filestore:/app/generated_files
     depends_on:
       - db
 
@@ -34,3 +38,4 @@ services:
 
 volumes:
   pgdata:
+  filestore:

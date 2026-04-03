@@ -8,7 +8,7 @@ load_dotenv()
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import article, auth, llm, review, words
+from app.routers import article, auth, email, llm, review, words
 
 
 @asynccontextmanager
@@ -31,6 +31,7 @@ app.add_middleware(
 
 app.include_router(article.router)
 app.include_router(auth.router)
+app.include_router(email.router)
 app.include_router(llm.router)
 app.include_router(review.router)
 app.include_router(words.router)

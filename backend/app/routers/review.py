@@ -319,6 +319,78 @@ async def export_top_words(
     ]
 
 
+@router.get("/export/csv")
+async def export_top_words_csv(
+    result_type: str = Query("forget"),
+    period: str = Query("all"),
+    limit: int = Query(10),
+    fields: str = Query("english,chinese,kk_phonetic,mnemonic,example_sentence"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from urllib.parse import quote
+    from app.services.file_store import save_file
+
+    now = datetime.now(timezone.utc)
+    since_map = {
+        "today": now.replace(hour=0, minute=0, second=0, microsecond=0),
+        "week": now - timedelta(days=7),
+        "month": now - timedelta(days=30),
+        "quarter": now - timedelta(days=90),
+        "all": None,
+    }
+    since = since_map.get(period)
+    type_labels = {"forget": "忘記", "unsure": "不確定", "remember": "記得"}
+    period_labels = {"today": "本日", "week": "本週", "month": "本月", "quarter": "本季", "all": "全部"}
+    field_labels = {
+        "english": "英文", "chinese": "中文", "kk_phonetic": "KK 音標",
+        "mnemonic": "故事", "example_sentence": "例句",
+    }
+
+    stmt = (
+        select(
+            Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic,
+            Word.example_sentence, func.count().label("cnt"),
+        )
+        .join(ReviewLog, ReviewLog.word_id == Word.id)
+        .where(ReviewLog.user_id == user.id, ReviewLog.result == result_type)
+    )
+    if since:
+        stmt = stmt.where(ReviewLog.created_at >= since)
+    stmt = (
+        stmt.group_by(Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic, Word.example_sentence)
+        .order_by(func.count().desc())
+        .limit(limit)
+    )
+    res = await db.execute(stmt)
+    rows = res.all()
+
+    field_list = [f for f in fields.split(",") if f.strip()]
+    today_str = now.strftime("%Y-%m-%d")
+    title_line = f"{today_str} {type_labels.get(result_type, result_type)} Top {limit} ({period_labels.get(period, period)})"
+
+    headers = [field_labels.get(f, f) for f in field_list] + ["次數"]
+    csv_lines = [f'"{title_line}"', ""]
+    csv_lines.append(",".join(f'"{h}"' for h in headers))
+    for r in rows:
+        vals = [str(getattr(r, f, "") or "") for f in field_list] + [str(r.cnt)]
+        csv_lines.append(",".join(f'"{v.replace(chr(34), chr(34)+chr(34))}"' for v in vals))
+
+    csv_content = "\ufeff" + "\n".join(csv_lines)
+    csv_bytes = csv_content.encode("utf-8")
+
+    filename = f"{today_str}_{type_labels.get(result_type, result_type)}_Top{limit}_{period_labels.get(period, period)}.csv"
+    await save_file(db, user.id, filename, "csv", csv_bytes)
+
+    buffer = io.BytesIO(csv_bytes)
+    encoded = quote(filename)
+    return StreamingResponse(
+        buffer,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{encoded}"},
+    )
+
+
 @router.get("/export/pdf")
 async def export_top_words_pdf(
     result_type: str = Query("forget"),
@@ -476,8 +548,13 @@ async def export_top_words_pdf(
 
         pdf.set_xy(x0, y0 + row_h)
 
-    buffer = io.BytesIO(pdf.output())
+    pdf_bytes = pdf.output()
     filename = f"{today_str}_{type_labels.get(result_type, result_type)}_Top{limit}_{period_labels.get(period, period)}.pdf"
+
+    from app.services.file_store import save_file
+    await save_file(db, user.id, filename, "pdf", pdf_bytes)
+
+    buffer = io.BytesIO(pdf_bytes)
     encoded = quote(filename)
     return StreamingResponse(
         buffer,

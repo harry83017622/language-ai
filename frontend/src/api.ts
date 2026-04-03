@@ -307,4 +307,27 @@ export async function getReviewStats(): Promise<ReviewStats> {
   return res.data;
 }
 
+export interface RecentFile {
+  id: string;
+  filename: string;
+  file_type: string;
+  created_at: string;
+}
+
+export async function getRecentFiles(): Promise<RecentFile[]> {
+  const res = await api.get("/recent-files");
+  return res.data;
+}
+
+export async function sendEmail(data: {
+  to: string;
+  subject?: string;
+  group_ids?: string[];
+  article_ids?: string[];
+  file_ids?: string[];
+  custom_text?: string;
+}): Promise<void> {
+  await api.post("/send-email", data);
+}
+
 export default api;
