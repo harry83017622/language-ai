@@ -280,8 +280,10 @@ async def generate_article_pdf(
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
+    from datetime import datetime as dt
+    today_str = dt.now().strftime("%Y-%m-%d")
     pdf.set_font("NotoSans", size=16)
-    pdf.cell(0, 10, request.title, new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, f"{today_str} {request.title}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
     pdf.set_font("NotoSans", size=11)

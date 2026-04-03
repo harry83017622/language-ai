@@ -184,7 +184,8 @@ export default function ArticlePage() {
 
   const getPlainText = () => {
     if (!result) return "";
-    const header = `${result.title}\n${"=".repeat(result.title.length)}\n\n`;
+    const fullTitle = `${dayjs().format("YYYY-MM-DD")} ${result.title}`;
+    const header = `${fullTitle}\n${"=".repeat(fullTitle.length)}\n\n`;
     const body = result.sentences
       .map((s) => (s.speaker ? `${s.speaker}: ${s.text}` : s.text))
       .join("\n");
