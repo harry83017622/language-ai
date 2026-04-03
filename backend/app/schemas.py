@@ -29,6 +29,7 @@ class WordGenerateRequest(BaseModel):
 
 class GenerateRequest(BaseModel):
     words: list[WordGenerateRequest]
+    force: bool = False
 
 
 class WordGenerateResult(BaseModel):

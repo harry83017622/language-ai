@@ -259,7 +259,7 @@ export default function CreatePage() {
         need_kk: false,
         need_example: false,
         need_mnemonic: true,
-      }]);
+      }], true);
       if (data.length > 0 && data[0].mnemonic_options) {
         updateRow(key, "mnemonic_options", data[0].mnemonic_options);
         updateRow(key, "mnemonic", null);
@@ -484,7 +484,7 @@ export default function CreatePage() {
                   key: name,
                   label: (
                     <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                      <span onClick={() => handleLoadDraft(name)}>{name}</span>
+                      <span>{name}</span>
                       <Button
                         type="text"
                         size="small"
@@ -495,6 +495,7 @@ export default function CreatePage() {
                     </Space>
                   ),
                 })),
+                onClick: ({ key }) => handleLoadDraft(key),
               }}
             >
               <Button icon={<FolderOpenOutlined />}>載入暫存 ({draftNames.length})</Button>

@@ -69,8 +69,8 @@ export interface WordGroupOut {
   words: WordOut[];
 }
 
-export async function generateWords(words: WordGenerateRequest[]): Promise<WordResult[]> {
-  const res = await api.post("/generate", { words });
+export async function generateWords(words: WordGenerateRequest[], force = false): Promise<WordResult[]> {
+  const res = await api.post("/generate", { words, force });
   return res.data.results;
 }
 

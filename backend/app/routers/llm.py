@@ -17,21 +17,22 @@ async def generate(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Look up existing words in DB first
-    english_list = [w.english.lower() for w in request.words]
-    result = await db.execute(
-        select(Word)
-        .join(WordGroup)
-        .where(
-            WordGroup.user_id == user.id,
-            func.lower(Word.english).in_(english_list),
-        )
-    )
+    # Look up existing words in DB first (skip if force regenerate)
     existing: dict[str, Word] = {}
-    for row in result.scalars().all():
-        key = row.english.lower()
-        if key not in existing:
-            existing[key] = row
+    if not request.force:
+        english_list = [w.english.lower() for w in request.words]
+        result = await db.execute(
+            select(Word)
+            .join(WordGroup)
+            .where(
+                WordGroup.user_id == user.id,
+                func.lower(Word.english).in_(english_list),
+            )
+        )
+        for row in result.scalars().all():
+            key = row.english.lower()
+            if key not in existing:
+                existing[key] = row
 
     # Split: words with DB hits vs words needing LLM
     final_results: list[WordGenerateResult] = []
