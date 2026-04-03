@@ -370,32 +370,67 @@ async def export_top_words_pdf(
     period_labels = {"today": "本日", "week": "本週", "month": "本月", "quarter": "本季", "all": "全部"}
     type_labels = {"forget": "忘記", "unsure": "不確定", "remember": "記得"}
 
+    font_path_latin = "/app/fonts/NotoSans-Regular.ttf"
+
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     if os.path.exists(font_path):
-        pdf.add_font("NotoSans", "", font_path, uni=True)
+        pdf.add_font("NotoSansCJK", "", font_path, uni=True)
+    if os.path.exists(font_path_latin):
+        pdf.add_font("NotoSansLatin", "", font_path_latin, uni=True)
+        pdf.set_fallback_fonts(["NotoSansLatin"])
+    pdf.set_font("NotoSansCJK", size=9)
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
-    # Title
-    pdf.set_font("NotoSans", size=14)
-    title = f"複習匯出 — {type_labels.get(result_type, result_type)} Top {limit} ({period_labels.get(period, period)})"
+    # Title with date
+    today_str = now.strftime("%Y-%m-%d")
+    title = f"{today_str} {type_labels.get(result_type, result_type)} Top {limit} ({period_labels.get(period, period)})"
+
+    pdf.set_font("NotoSansCJK", size=14)
     pdf.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
     # Header
     headers = [field_labels.get(f, f) for f in field_list] + ["次數"]
-    n_cols = len(headers)
     page_width = 210 - 20  # portrait A4 minus margins
-    count_w = 20
-    col_w = (page_width - count_w) / max(len(field_list), 1)
-    col_widths = [col_w] * len(field_list) + [count_w]
 
-    pdf.set_font("NotoSans", size=9)
+    # Calculate column widths dynamically based on actual content
+    pdf.set_font("NotoSansCJK", size=9)
+    all_cols = field_list + ["cnt"]
+    min_col_w = 12  # minimum column width
+
+    # Measure max content width per column (header + data)
+    max_widths: list[float] = []
+    for i, col in enumerate(all_cols):
+        header_w = pdf.get_string_width(headers[i]) + 4
+        data_max = 0
+        for r in rows:
+            val = str(getattr(r, col, "") or "")
+            w = pdf.get_string_width(val) + 4
+            data_max = max(data_max, w)
+        # Cap single column to 40% of page to leave room for others
+        max_w = min(max(header_w, data_max), page_width * 0.4)
+        max_widths.append(max(max_w, min_col_w))
+
+    # Scale to fit page width
+    total = sum(max_widths)
+    if total > page_width:
+        scale = page_width / total
+        col_widths = [w * scale for w in max_widths]
+    else:
+        # Distribute extra space proportionally
+        extra = page_width - total
+        col_widths = [w + extra * (w / total) for w in max_widths]
+
+    line_h = 5
+
     pdf.set_fill_color(24, 144, 255)
     pdf.set_text_color(255, 255, 255)
     for i, h in enumerate(headers):
-        pdf.cell(col_widths[i], 7, h, border=1, fill=True, align="C")
+        pdf.cell(col_widths[i], line_h * 1.4, h, border=1, fill=True, align="C")
     pdf.ln()
+
+    pad = 1  # padding inside cell
 
     # Rows
     pdf.set_text_color(0, 0, 0)
@@ -406,25 +441,43 @@ async def export_top_words_pdf(
             pdf.set_fill_color(255, 255, 255)
 
         vals = [str(getattr(r, f, "") or "") for f in field_list] + [str(r.cnt)]
-        max_lines = 1
+
+        # Calculate row height: use dry_run multi_cell with inner width
+        max_h = line_h
         for i, v in enumerate(vals):
-            w = pdf.get_string_width(v)
-            lines = max(1, int(w / (col_widths[i] - 2)) + 1)
-            max_lines = max(max_lines, lines)
-        rh = max(6, max_lines * 5)
+            inner_w = col_widths[i] - 2 * pad
+            result = pdf.multi_cell(inner_w, line_h, v, dry_run=True, output="HEIGHT")
+            max_h = max(max_h, result)
+        row_h = max_h
 
         x0, y0 = pdf.get_x(), pdf.get_y()
-        if y0 + rh > pdf.h - 15:
+        if y0 + row_h > pdf.h - 15:
             pdf.add_page()
-            y0 = pdf.get_y()
+            x0, y0 = pdf.get_x(), pdf.get_y()
 
+        # Draw background + border for each cell
+        for i in range(len(vals)):
+            cx = x0 + sum(col_widths[:i])
+            pdf.rect(cx, y0, col_widths[i], row_h, style="DF")
+
+        # Write text clipped within each cell
         for i, v in enumerate(vals):
-            pdf.set_xy(x0 + sum(col_widths[:i]), y0)
-            pdf.multi_cell(col_widths[i], rh / max_lines, v, border=1, fill=True)
-        pdf.set_xy(x0, y0 + rh)
+            cx = x0 + sum(col_widths[:i])
+            inner_w = col_widths[i] - 2 * pad
+            with pdf.local_context():
+                pdf.set_xy(cx + pad, y0)
+                with pdf.rect_clip(cx, y0, col_widths[i], row_h):
+                    pdf.multi_cell(inner_w, line_h, v, border=0, align="L")
+
+        # Redraw borders on top
+        for i in range(len(vals)):
+            cx = x0 + sum(col_widths[:i])
+            pdf.rect(cx, y0, col_widths[i], row_h)
+
+        pdf.set_xy(x0, y0 + row_h)
 
     buffer = io.BytesIO(pdf.output())
-    filename = f"review_top{limit}_{result_type}_{period}.pdf"
+    filename = f"{today_str}_{type_labels.get(result_type, result_type)}_Top{limit}_{period_labels.get(period, period)}.pdf"
     encoded = quote(filename)
     return StreamingResponse(
         buffer,

@@ -269,14 +269,21 @@ async def generate_article_pdf(
 
     font_path = "/app/fonts/NotoSansTC-Regular.otf"
 
+    font_path_latin = "/app/fonts/NotoSans-Regular.ttf"
+
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     if os.path.exists(font_path):
         pdf.add_font("NotoSans", "", font_path, uni=True)
+    if os.path.exists(font_path_latin):
+        pdf.add_font("NotoSansLatin", "", font_path_latin, uni=True)
+        pdf.set_fallback_fonts(["NotoSansLatin"])
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
+    from datetime import datetime as dt
+    today_str = dt.now().strftime("%Y-%m-%d")
     pdf.set_font("NotoSans", size=16)
-    pdf.cell(0, 10, request.title, new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, f"{today_str} {request.title}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
     pdf.set_font("NotoSans", size=11)

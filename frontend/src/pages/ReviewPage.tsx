@@ -26,6 +26,7 @@ import {
   CloseCircleOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
+import dayjs from "dayjs";
 import type { ReviewWord, ReviewStats, ReviewWordStat, ExportWord } from "../api";
 import api, { getReviewWords, logReview, getReviewStats, exportTopWords } from "../api";
 
@@ -84,14 +85,17 @@ export default function ReviewPage() {
       row.push(String(w.count));
       return row;
     });
-    const csv = [headers, ...rows]
+    const titleRow = [`${dayjs().format("YYYY-MM-DD")} ${typeLabel} Top${exportLimit} ${periodLabel}`];
+    const csv = [titleRow, [], headers, ...rows]
       .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
       .join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `review_top${exportLimit}_${exportType}_${exportPeriod}.csv`;
+    const typeLabel = { forget: "忘記", unsure: "不確定", remember: "記得" }[exportType] || exportType;
+    const periodLabel = { today: "本日", week: "本週", month: "本月", quarter: "本季", all: "全部" }[exportPeriod] || exportPeriod;
+    a.download = `${dayjs().format("YYYY-MM-DD")}_${typeLabel}_Top${exportLimit}_${periodLabel}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -111,7 +115,9 @@ export default function ReviewPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `review_top${exportLimit}_${exportType}_${exportPeriod}.pdf`;
+      const typeLabel = { forget: "忘記", unsure: "不確定", remember: "記得" }[exportType] || exportType;
+      const periodLabel = { today: "本日", week: "本週", month: "本月", quarter: "本季", all: "全部" }[exportPeriod] || exportPeriod;
+      a.download = `${dayjs().format("YYYY-MM-DD")}_${typeLabel}_Top${exportLimit}_${periodLabel}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
