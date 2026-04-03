@@ -22,6 +22,7 @@ import {
 } from "@ant-design/icons";
 import type { WordGroupSummary, WordGroupOut, WordOut } from "../api";
 import SpeakButton from "../components/SpeakButton";
+import { downloadBlob, extractFilename } from "../utils/download";
 import api, {
   batchMarkWords,
   deleteWordGroup,
@@ -34,34 +35,10 @@ import api, {
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
-async function downloadCsv(id: string) {
-  const res = await api.get(`/word-groups/${id}/csv`, { responseType: "blob" });
-  const contentDisposition = res.headers["content-disposition"] || "";
-  const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
-  const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "download.csv";
-
-  const blob = new Blob([res.data], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function downloadPdf(id: string) {
-  const res = await api.get(`/word-groups/${id}/pdf`, { responseType: "blob" });
-  const contentDisposition = res.headers["content-disposition"] || "";
-  const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
-  const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "download.pdf";
-
-  const blob = new Blob([res.data], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+async function downloadFile(url: string, fallbackName: string) {
+  const res = await api.get(url, { responseType: "blob" });
+  const filename = extractFilename(res.headers, fallbackName);
+  downloadBlob(new Blob([res.data]), filename);
 }
 
 export default function HistoryPage() {
@@ -133,11 +110,7 @@ export default function HistoryPage() {
 
   const handleDownload = async (id: string, format: "csv" | "pdf") => {
     try {
-      if (format === "csv") {
-        await downloadCsv(id);
-      } else {
-        await downloadPdf(id);
-      }
+      await downloadFile(`/word-groups/${id}/${format}`, `download.${format}`);
     } catch {
       message.error("下載失敗");
     }

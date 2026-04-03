@@ -25,6 +25,8 @@ import {
   SendOutlined,
 } from "@ant-design/icons";
 import type { ArticleSentence, ArticleSummary, GenerateArticleResponse } from "../api";
+import { downloadBlob } from "../utils/download";
+import { SPEAKER_COLORS } from "../utils/labels";
 import api, {
   generateArticle,
   downloadAudio,
@@ -143,12 +145,7 @@ export default function ArticlePage() {
     setAudioLoading(true);
     try {
       const blob = await downloadAudio(result.sentences);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = getArticleFilename("mp3");
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, getArticleFilename("mp3"));
       message.success("MP3 下載完成！");
     } catch (e: any) {
       message.error("MP3 生成失敗：" + (e?.response?.data?.detail || e.message));
@@ -162,12 +159,7 @@ export default function ArticlePage() {
     setVideoLoading(true);
     try {
       const blob = await downloadVideo(result.sentences);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = getArticleFilename("mp4");
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, getArticleFilename("mp4"));
       message.success("MP4 下載完成！");
     } catch (e: any) {
       message.error("MP4 生成失敗：" + (e?.response?.data?.detail || e.message));
@@ -203,13 +195,7 @@ export default function ArticlePage() {
 
   const handleDownloadTxt = () => {
     if (!result) return;
-    const blob = new Blob([getPlainText()], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = getArticleFilename("txt");
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([getPlainText()], { type: "text/plain;charset=utf-8" }), getArticleFilename("txt"));
   };
 
   const handleDownloadArticlePdf = async () => {
@@ -220,13 +206,7 @@ export default function ArticlePage() {
         { title: result.title, sentences: result.sentences, used_words: result.used_words },
         { responseType: "blob" }
       );
-      const blob = new Blob([res.data], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = getArticleFilename("pdf");
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(new Blob([res.data]), getArticleFilename("pdf"));
     } catch {
       message.error("PDF 下載失敗");
     }
@@ -337,11 +317,7 @@ export default function ArticlePage() {
               <div key={i} style={{ marginBottom: 12 }}>
                 <Paragraph style={{ marginBottom: 2 }}>
                   {s.speaker && (
-                    <Tag color={
-                      s.speaker === "A" ? "blue" :
-                      s.speaker === "B" ? "green" :
-                      s.speaker === "C" ? "orange" : "purple"
-                    }>
+                    <Tag color={SPEAKER_COLORS[s.speaker] ?? "purple"}>
                       {s.speaker}
                     </Tag>
                   )}

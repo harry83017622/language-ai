@@ -29,6 +29,8 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import SpeakButton from "../components/SpeakButton";
+import { downloadBlob, extractFilename } from "../utils/download";
+import { TYPE_LABELS, PERIOD_LABELS } from "../utils/labels";
 import type { ReviewWord, ReviewStats, ReviewWordStat, ExportWord } from "../api";
 import api, { getReviewWords, logReview, getReviewStats, exportTopWords } from "../api";
 
@@ -86,16 +88,8 @@ export default function ReviewPage() {
         },
         responseType: "blob",
       });
-      const contentDisposition = res.headers["content-disposition"] || "";
-      const filenameMatch = contentDisposition.match(/filename\*=UTF-8''(.+)/);
-      const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : "export.csv";
-      const blob = new Blob([res.data], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
+      const filename = extractFilename(res.headers, "export.csv");
+      downloadBlob(new Blob([res.data]), filename);
     } catch {
       message.error("CSV 下載失敗");
     }
@@ -112,15 +106,11 @@ export default function ReviewPage() {
         },
         responseType: "blob",
       });
-      const blob = new Blob([res.data], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const typeLabel = { forget: "忘記", unsure: "不確定", remember: "記得" }[exportType] || exportType;
-      const periodLabel = { today: "本日", week: "本週", month: "本月", quarter: "本季", all: "全部" }[exportPeriod] || exportPeriod;
-      a.download = `${dayjs().format("YYYY-MM-DD")}_${typeLabel}_Top${exportLimit}_${periodLabel}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const filename = extractFilename(
+        res.headers,
+        `${dayjs().format("YYYY-MM-DD")}_export.pdf`
+      );
+      downloadBlob(new Blob([res.data]), filename);
     } catch {
       message.error("PDF 下載失敗");
     }
