@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button, Card, Input, message, Table, Tag, Typography } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import type { WordSearchResult } from "../api";
-import { searchWords } from "../api";
+import { searchWords, updateWord } from "../api";
 
 const { Title } = Typography;
 
@@ -29,12 +29,78 @@ export default function SearchPage() {
     }
   };
 
+  const handleCellSave = async (id: string, field: string, value: string, original: string | null) => {
+    if (value === (original ?? "")) return;
+    try {
+      await updateWord(id, { [field]: value });
+      setResults((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+      );
+    } catch {
+      message.error("更新失敗");
+    }
+  };
+
   const columns = [
-    { title: "英文", dataIndex: "english", width: 130 },
-    { title: "中文", dataIndex: "chinese", width: 120 },
-    { title: "KK 音標", dataIndex: "kk_phonetic", width: 160 },
-    { title: "故事", dataIndex: "mnemonic", width: 140 },
-    { title: "例句", dataIndex: "example_sentence", ellipsis: true },
+    {
+      title: "英文",
+      dataIndex: "english",
+      width: 130,
+      render: (text: string, record: WordSearchResult) => (
+        <Input
+          defaultValue={text}
+          onBlur={(e) => handleCellSave(record.id, "english", e.target.value, text)}
+          onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+        />
+      ),
+    },
+    {
+      title: "中文",
+      dataIndex: "chinese",
+      width: 120,
+      render: (text: string | null, record: WordSearchResult) => (
+        <Input
+          defaultValue={text ?? ""}
+          onBlur={(e) => handleCellSave(record.id, "chinese", e.target.value, text)}
+          onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+        />
+      ),
+    },
+    {
+      title: "KK 音標",
+      dataIndex: "kk_phonetic",
+      width: 160,
+      render: (text: string | null, record: WordSearchResult) => (
+        <Input
+          defaultValue={text ?? ""}
+          onBlur={(e) => handleCellSave(record.id, "kk_phonetic", e.target.value, text)}
+          onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+        />
+      ),
+    },
+    {
+      title: "故事",
+      dataIndex: "mnemonic",
+      width: 140,
+      render: (text: string | null, record: WordSearchResult) => (
+        <Input
+          defaultValue={text ?? ""}
+          onBlur={(e) => handleCellSave(record.id, "mnemonic", e.target.value, text)}
+          onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+        />
+      ),
+    },
+    {
+      title: "例句",
+      dataIndex: "example_sentence",
+      render: (text: string | null, record: WordSearchResult) => (
+        <Input.TextArea
+          defaultValue={text ?? ""}
+          autoSize={{ minRows: 1, maxRows: 3 }}
+          onBlur={(e) => handleCellSave(record.id, "example_sentence", e.target.value, text)}
+        />
+      ),
+    },
     {
       title: "來源",
       width: 200,
