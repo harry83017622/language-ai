@@ -21,6 +21,7 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import type { WordGroupSummary, WordGroupOut, WordOut } from "../api";
+import SpeakButton from "../components/SpeakButton";
 import api, {
   batchMarkWords,
   deleteWordGroup,
@@ -296,12 +297,16 @@ export default function HistoryPage() {
     {
       title: "英文",
       dataIndex: "english",
-      width: 120,
+      width: 150,
       render: (text: string, _: WordOut, index: number) => (
-        <Input
-          value={editWords[index]?.english ?? text}
-          onChange={(e) => updateEditWord(index, "english", e.target.value)}
-        />
+        <Space size={2}>
+          <Input
+            value={editWords[index]?.english ?? text}
+            onChange={(e) => updateEditWord(index, "english", e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <SpeakButton text={editWords[index]?.english ?? text} />
+        </Space>
       ),
     },
     {

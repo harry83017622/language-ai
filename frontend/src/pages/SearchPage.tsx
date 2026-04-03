@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Button, Card, Input, message, Table, Tag, Typography } from "antd";
+import { Button, Card, Input, message, Space, Table, Tag, Typography } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
+import SpeakButton from "../components/SpeakButton";
 import type { WordSearchResult } from "../api";
 import { searchWords, updateWord } from "../api";
 
@@ -45,13 +46,17 @@ export default function SearchPage() {
     {
       title: "英文",
       dataIndex: "english",
-      width: 130,
+      width: 160,
       render: (text: string, record: WordSearchResult) => (
-        <Input
-          defaultValue={text}
-          onBlur={(e) => handleCellSave(record.id, "english", e.target.value, text)}
-          onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
-        />
+        <Space size={2}>
+          <Input
+            defaultValue={text}
+            onBlur={(e) => handleCellSave(record.id, "english", e.target.value, text)}
+            onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+            style={{ flex: 1 }}
+          />
+          <SpeakButton text={text} />
+        </Space>
       ),
     },
     {
