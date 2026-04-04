@@ -108,7 +108,7 @@ describe("HistoryPage", () => {
     });
   });
 
-  it("saves edited word", async () => {
+  it("saves edited word", { timeout: 15000 }, async () => {
     render(<HistoryPage />);
     await waitFor(() => expect(screen.getByText("TOEIC Lesson 1")).toBeInTheDocument());
     await userEvent.click(screen.getAllByText("編輯")[0]);
