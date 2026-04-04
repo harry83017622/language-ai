@@ -41,10 +41,100 @@ def _streaming_response(pdf: FPDF, filename: str) -> tuple[StreamingResponse, by
     return response, pdf_bytes
 
 
+# --- Shared Table Renderer ---
+
+def _render_table(
+    pdf: FPDF,
+    headers: list[str],
+    col_keys: list[str],
+    rows: list[dict],
+) -> None:
+    """Render a table with dynamic column widths, proper wrapping, and alignment.
+
+    Used by both word group PDF and review export PDF for consistent formatting.
+    """
+    page_width = 210 - 20
+    pdf.set_font("NotoSans", size=9)
+    line_h = 5
+    pad = 1
+    min_col_w = 18
+
+    # Dynamic column widths based on content
+    max_widths: list[float] = []
+    for i, col in enumerate(col_keys):
+        header_w = pdf.get_string_width(headers[i]) + 4
+        data_max = 0
+        for r in rows:
+            val = str(r.get(col, "") or "")
+            w = pdf.get_string_width(val) + 4
+            data_max = max(data_max, w)
+        max_w = min(max(header_w, data_max), page_width * 0.4)
+        max_widths.append(max(max_w, min_col_w))
+
+    total = sum(max_widths)
+    if total > page_width:
+        scale = page_width / total
+        col_widths = [w * scale for w in max_widths]
+    else:
+        extra = page_width - total
+        col_widths = [w + extra * (w / total) for w in max_widths]
+
+    # Header row
+    pdf.set_fill_color(24, 144, 255)
+    pdf.set_text_color(255, 255, 255)
+    for i, h in enumerate(headers):
+        pdf.cell(col_widths[i], line_h * 1.4, h, border=1, fill=True, align="C")
+    pdf.ln()
+
+    # Data rows
+    pdf.set_text_color(0, 0, 0)
+    for row_idx, r in enumerate(rows):
+        if row_idx % 2 == 1:
+            pdf.set_fill_color(245, 245, 245)
+        else:
+            pdf.set_fill_color(255, 255, 255)
+
+        vals = [str(r.get(col, "") or "") for col in col_keys]
+
+        # Calculate row height
+        max_h = line_h
+        for i, v in enumerate(vals):
+            inner_w = max(col_widths[i] - 2 * pad, 5)
+            result = pdf.multi_cell(inner_w, line_h, v, dry_run=True, output="HEIGHT")
+            max_h = max(max_h, result)
+        row_h = max_h
+
+        x0, y0 = pdf.get_x(), pdf.get_y()
+        if y0 + row_h > pdf.h - 15:
+            pdf.add_page()
+            x0, y0 = pdf.get_x(), pdf.get_y()
+
+        # Background fills
+        for i in range(len(vals)):
+            cx = x0 + sum(col_widths[:i])
+            pdf.rect(cx, y0, col_widths[i], row_h, style="DF")
+
+        # Text (clipped within cell)
+        for i, v in enumerate(vals):
+            cx = x0 + sum(col_widths[:i])
+            inner_w = max(col_widths[i] - 2 * pad, 5)
+            with pdf.local_context():
+                pdf.set_xy(cx + pad, y0)
+                with pdf.rect_clip(cx, y0, col_widths[i], row_h):
+                    pdf.multi_cell(inner_w, line_h, v, border=0, align="L")
+
+        # Borders
+        for i in range(len(vals)):
+            cx = x0 + sum(col_widths[:i])
+            pdf.rect(cx, y0, col_widths[i], row_h)
+
+        pdf.set_xy(x0, y0 + row_h)
+
+
 # --- Word Group Table PDF ---
 
 def build_word_group_pdf(title: str, saved_date: str, words: list[dict]) -> tuple[StreamingResponse, bytes, str]:
-    """Build a PDF table for a word group. Returns (response, bytes, filename)."""
+    """Build a PDF table for a word group."""
     pdf = _create_pdf()
     pdf.add_page()
 
@@ -52,51 +142,9 @@ def build_word_group_pdf(title: str, saved_date: str, words: list[dict]) -> tupl
     pdf.cell(0, 10, f"{title} ({saved_date})", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
-    col_widths = [30, 25, 35, 35, 65]
     headers = ["英文", "中文", "KK 音標", "故事", "例句"]
-    pdf.set_font("NotoSans", size=10)
-    pdf.set_fill_color(24, 144, 255)
-    pdf.set_text_color(255, 255, 255)
-    for i, h in enumerate(headers):
-        pdf.cell(col_widths[i], 8, h, border=1, fill=True, align="C")
-    pdf.ln()
-
-    pdf.set_font("NotoSans", size=9)
-    pdf.set_text_color(0, 0, 0)
-    for row_idx, w in enumerate(words):
-        if row_idx % 2 == 1:
-            pdf.set_fill_color(245, 245, 245)
-        else:
-            pdf.set_fill_color(255, 255, 255)
-
-        cells = [
-            w.get("english", ""),
-            w.get("chinese", ""),
-            w.get("kk_phonetic", ""),
-            w.get("mnemonic", ""),
-            w.get("example_sentence", ""),
-        ]
-
-        max_lines = 1
-        for i, cell in enumerate(cells):
-            cell_width = col_widths[i] - 2
-            text_width = pdf.get_string_width(cell)
-            lines = max(1, int(text_width / cell_width) + 1)
-            max_lines = max(max_lines, lines)
-        row_height = max(7, max_lines * 5)
-
-        x_start = pdf.get_x()
-        y_start = pdf.get_y()
-
-        if y_start + row_height > pdf.h - 15:
-            pdf.add_page()
-            y_start = pdf.get_y()
-
-        for i, cell in enumerate(cells):
-            pdf.set_xy(x_start + sum(col_widths[:i]), y_start)
-            pdf.multi_cell(col_widths[i], row_height / max_lines, cell, border=1, fill=True)
-
-        pdf.set_xy(x_start, y_start + row_height)
+    col_keys = ["english", "chinese", "kk_phonetic", "mnemonic", "example_sentence"]
+    _render_table(pdf, headers, col_keys, words)
 
     filename = f"{title}_{saved_date}.pdf"
     response, pdf_bytes = _streaming_response(pdf, filename)
@@ -188,80 +236,8 @@ def build_review_export_pdf(
     pdf.ln(3)
 
     headers = [field_labels.get(f, f) for f in field_list] + ["次數"]
-    page_width = 210 - 20
-    pdf.set_font("NotoSans", size=9)
-
-    # Dynamic column widths based on content
-    all_cols = field_list + ["count"]
-    min_col_w = 18
-    max_widths: list[float] = []
-    for i, col in enumerate(all_cols):
-        header_w = pdf.get_string_width(headers[i]) + 4
-        data_max = 0
-        for r in rows:
-            val = str(r.get(col, "") or "")
-            w = pdf.get_string_width(val) + 4
-            data_max = max(data_max, w)
-        max_w = min(max(header_w, data_max), page_width * 0.4)
-        max_widths.append(max(max_w, min_col_w))
-
-    total = sum(max_widths)
-    if total > page_width:
-        scale = page_width / total
-        col_widths = [w * scale for w in max_widths]
-    else:
-        extra = page_width - total
-        col_widths = [w + extra * (w / total) for w in max_widths]
-
-    line_h = 5
-    pad = 1
-
-    # Header
-    pdf.set_fill_color(24, 144, 255)
-    pdf.set_text_color(255, 255, 255)
-    for i, h in enumerate(headers):
-        pdf.cell(col_widths[i], line_h * 1.4, h, border=1, fill=True, align="C")
-    pdf.ln()
-
-    # Rows
-    pdf.set_text_color(0, 0, 0)
-    for row_idx, r in enumerate(rows):
-        if row_idx % 2 == 1:
-            pdf.set_fill_color(245, 245, 245)
-        else:
-            pdf.set_fill_color(255, 255, 255)
-
-        vals = [str(r.get(f, "") or "") for f in field_list] + [str(r.get("count", ""))]
-
-        max_h = line_h
-        for i, v in enumerate(vals):
-            inner_w = max(col_widths[i] - 2 * pad, 5)
-            result = pdf.multi_cell(inner_w, line_h, v, dry_run=True, output="HEIGHT")
-            max_h = max(max_h, result)
-        row_h = max_h
-
-        x0, y0 = pdf.get_x(), pdf.get_y()
-        if y0 + row_h > pdf.h - 15:
-            pdf.add_page()
-            x0, y0 = pdf.get_x(), pdf.get_y()
-
-        for i in range(len(vals)):
-            cx = x0 + sum(col_widths[:i])
-            pdf.rect(cx, y0, col_widths[i], row_h, style="DF")
-
-        for i, v in enumerate(vals):
-            cx = x0 + sum(col_widths[:i])
-            inner_w = max(col_widths[i] - 2 * pad, 5)
-            with pdf.local_context():
-                pdf.set_xy(cx + pad, y0)
-                with pdf.rect_clip(cx, y0, col_widths[i], row_h):
-                    pdf.multi_cell(inner_w, line_h, v, border=0, align="L")
-
-        for i in range(len(vals)):
-            cx = x0 + sum(col_widths[:i])
-            pdf.rect(cx, y0, col_widths[i], row_h)
-
-        pdf.set_xy(x0, y0 + row_h)
+    col_keys = field_list + ["count"]
+    _render_table(pdf, headers, col_keys, rows)
 
     response, pdf_bytes = _streaming_response(pdf, filename)
     return response, pdf_bytes
