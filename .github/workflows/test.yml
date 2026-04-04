@@ -30,8 +30,17 @@ jobs:
           cd backend
           python -m pytest tests/ -v --tb=short
 
-      - name: Frontend type check
+      - name: Frontend setup
         run: |
           cd frontend
           npm ci
+
+      - name: Frontend type check
+        run: |
+          cd frontend
           npx tsc --noEmit
+
+      - name: Frontend tests
+        run: |
+          cd frontend
+          npx vitest run
