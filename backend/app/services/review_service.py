@@ -80,6 +80,8 @@ async def get_weighted_words(
     for w in eligible:
         if w.id in latest_per_word:
             last_result, last_time = latest_per_word[w.id]
+            if last_time.tzinfo is None:
+                last_time = last_time.replace(tzinfo=timezone.utc)
             days_since = max(1, (now - last_time).days)
             base = {
                 "forget": WEIGHT_FORGET,

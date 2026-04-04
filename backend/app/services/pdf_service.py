@@ -17,14 +17,18 @@ FONT_CJK = "/app/fonts/NotoSansTC-Regular.otf"
 FONT_LATIN = "/app/fonts/NotoSans-Regular.ttf"
 
 
+def _get_font_name() -> str:
+    return "NotoSans" if os.path.exists(FONT_CJK) else "Helvetica"
+
+
 def _create_pdf(orientation: str = "P") -> FPDF:
-    """Create a PDF with CJK + IPA font support."""
+    """Create a PDF with CJK + IPA font support. Falls back to Helvetica if fonts missing."""
     pdf = FPDF(orientation=orientation, unit="mm", format="A4")
     if os.path.exists(FONT_CJK):
         pdf.add_font("NotoSans", "", FONT_CJK, uni=True)
-    if os.path.exists(FONT_LATIN):
-        pdf.add_font("NotoSansLatin", "", FONT_LATIN, uni=True)
-        pdf.set_fallback_fonts(["NotoSansLatin"])
+        if os.path.exists(FONT_LATIN):
+            pdf.add_font("NotoSansLatin", "", FONT_LATIN, uni=True)
+            pdf.set_fallback_fonts(["NotoSansLatin"])
     pdf.set_auto_page_break(auto=True, margin=15)
     return pdf
 
@@ -54,7 +58,7 @@ def _render_table(
     Used by both word group PDF and review export PDF for consistent formatting.
     """
     page_width = 210 - 20
-    pdf.set_font("NotoSans", size=9)
+    pdf.set_font(_get_font_name(), size=9)
     line_h = 5
     pad = 1
     min_col_w = 18
@@ -138,7 +142,7 @@ def build_word_group_pdf(title: str, saved_date: str, words: list[dict]) -> tupl
     pdf = _create_pdf()
     pdf.add_page()
 
-    pdf.set_font("NotoSans", size=16)
+    pdf.set_font(_get_font_name(), size=16)
     pdf.cell(0, 10, f"{title} ({saved_date})", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
@@ -165,7 +169,7 @@ def build_article_pdf(
     pdf.add_page()
 
     today_str = datetime.now().strftime("%Y-%m-%d")
-    pdf.set_font("NotoSans", size=16)
+    pdf.set_font(_get_font_name(), size=16)
     pdf.cell(0, 10, f"{today_str} {title}", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
@@ -178,7 +182,7 @@ def build_article_pdf(
         )
 
     def write_highlighted(text: str):
-        pdf.set_font("NotoSans", size=11)
+        pdf.set_font(_get_font_name(), size=11)
         if not kw_pattern:
             pdf.write(7, text)
             return
@@ -191,7 +195,7 @@ def build_article_pdf(
             else:
                 pdf.write(7, part)
 
-    pdf.set_font("NotoSans", size=11)
+    pdf.set_font(_get_font_name(), size=11)
     for s in sentences:
         speaker = s.get("speaker")
         text = s.get("text", "")
@@ -199,7 +203,7 @@ def build_article_pdf(
 
         if speaker:
             pdf.set_text_color(100, 100, 100)
-            pdf.set_font("NotoSans", size=11)
+            pdf.set_font(_get_font_name(), size=11)
             pdf.write(7, f"{speaker}: ")
             pdf.set_text_color(0, 0, 0)
         write_highlighted(text)
@@ -208,7 +212,7 @@ def build_article_pdf(
         if chinese:
             pdf.set_x(pdf.l_margin)
             pdf.set_text_color(100, 100, 100)
-            pdf.set_font("NotoSans", size=10)
+            pdf.set_font(_get_font_name(), size=10)
             pdf.multi_cell(0, 6, chinese)
             pdf.set_text_color(0, 0, 0)
         pdf.ln(2)
@@ -231,7 +235,7 @@ def build_review_export_pdf(
     pdf = _create_pdf()
     pdf.add_page()
 
-    pdf.set_font("NotoSans", size=14)
+    pdf.set_font(_get_font_name(), size=14)
     pdf.cell(0, 10, title, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 

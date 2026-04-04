@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import GeneratedFile
 
-STORE_DIR = "/app/generated_files"
+STORE_DIR = os.getenv("FILE_STORE_DIR", "/app/generated_files")
 os.makedirs(STORE_DIR, exist_ok=True)
 
 
