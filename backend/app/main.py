@@ -14,7 +14,11 @@ from app.routers import article, auth, email, llm, review, words
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Run Alembic migrations on startup
-    subprocess.run(["alembic", "upgrade", "head"], check=True)
+    result = subprocess.run(["alembic", "upgrade", "head"], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"[ALEMBIC STDOUT] {result.stdout}")
+        print(f"[ALEMBIC STDERR] {result.stderr}")
+        result.check_returncode()
     yield
 
 
