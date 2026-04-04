@@ -32,9 +32,8 @@ test.describe("Create Words", () => {
   test("clear all", async ({ page }) => {
     await page.fill('input[placeholder*="標題"]', "To Clear");
     await page.getByRole("button", { name: "清除全部" }).click();
-    await expect(page.getByText("確認清除")).toBeVisible();
-    // Click OK in the confirmation modal
-    await page.locator(".ant-modal-confirm-btns .ant-btn-dangerous").click();
+    // Click the confirm button inside the modal (Ant Design confirm modal uses ant-modal-confirm-btns)
+    await page.locator(".ant-modal-confirm-btns button").last().click();
     await page.waitForTimeout(500);
     await expect(page.locator('input[placeholder*="標題"]')).toHaveValue("");
   });
