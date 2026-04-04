@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 
-// We test the localStorage logic directly since AuthProvider depends on React context
 describe("auth localStorage logic", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
+  // --- Token management ---
   it("stores token and user on login", () => {
     const token = "test-jwt-token";
     const user = { id: "1", email: "test@test.com", name: "Test", picture: null };
@@ -36,5 +36,20 @@ describe("auth localStorage logic", () => {
       user = null;
     }
     expect(user).toBeNull();
+  });
+
+  // --- Token persistence ---
+  it("token persists across reads", () => {
+    localStorage.setItem("token", "persistent-token");
+    expect(localStorage.getItem("token")).toBe("persistent-token");
+    expect(localStorage.getItem("token")).toBe("persistent-token");
+  });
+
+  it("user object roundtrips correctly", () => {
+    const user = { id: "uuid-123", email: "a@b.com", name: "名前", picture: "https://photo.url" };
+    localStorage.setItem("user", JSON.stringify(user));
+    const loaded = JSON.parse(localStorage.getItem("user")!);
+    expect(loaded).toEqual(user);
+    expect(loaded.picture).toBe("https://photo.url");
   });
 });
