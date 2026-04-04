@@ -64,38 +64,12 @@ const newRow = (): WordRow => ({
   generated: false,
 });
 
-const DRAFTS_KEY = "createPage_drafts";
-const ACTIVE_KEY = "createPage_activeDraft";
-
-interface DraftData {
-  rows: WordRow[];
-  groupTitle: string;
-  savedDate: string;
-}
-
-function loadAllDrafts(): Record<string, DraftData> {
-  try {
-    const raw = localStorage.getItem(DRAFTS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return {};
-}
-
-function saveAllDrafts(drafts: Record<string, DraftData>) {
-  localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts));
-}
-
-function getActiveDraftName(): string | null {
-  return localStorage.getItem(ACTIVE_KEY);
-}
-
-function setActiveDraftName(name: string | null) {
-  if (name) {
-    localStorage.setItem(ACTIVE_KEY, name);
-  } else {
-    localStorage.removeItem(ACTIVE_KEY);
-  }
-}
+import {
+  loadAllDrafts,
+  saveAllDrafts,
+  getActiveDraftName,
+  setActiveDraftName,
+} from "../utils/drafts";
 
 export default function CreatePage() {
   const allDrafts = loadAllDrafts();
