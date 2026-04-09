@@ -147,7 +147,7 @@ export default function EmailPage() {
           <div>
             <Text strong>信件主旨：</Text>
             <Input
-              placeholder="選填，預設為 English Vocab Tool"
+              placeholder="選填，預設為 日文單字工具"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               style={{ marginTop: 4 }}

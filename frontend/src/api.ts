@@ -25,18 +25,18 @@ api.interceptors.response.use(
 );
 
 export interface WordGenerateRequest {
-  english: string;
-  need_chinese: boolean;
-  need_kk: boolean;
+  term: string;
+  need_definition: boolean;
+  need_reading: boolean;
   need_example: boolean;
   need_mnemonic: boolean;
 }
 
 export interface WordResult {
   key?: string;
-  english: string;
-  chinese: string | null;
-  kk_phonetic: string | null;
+  term: string;
+  definition: string | null;
+  reading: string | null;
   example_sentence: string | null;
   mnemonic: string | null;
   mnemonic_options?: string[] | null;
@@ -52,9 +52,9 @@ export interface WordGroupSummary {
 
 export interface WordOut {
   id: string;
-  english: string;
-  chinese: string | null;
-  kk_phonetic: string | null;
+  term: string;
+  definition: string | null;
+  reading: string | null;
   mnemonic: string | null;
   example_sentence: string | null;
   sort_order: number;
@@ -78,9 +78,9 @@ export async function saveWordGroup(data: {
   title: string;
   saved_date: string;
   words: {
-    english: string;
-    chinese?: string | null;
-    kk_phonetic?: string | null;
+    term: string;
+    definition?: string | null;
+    reading?: string | null;
     mnemonic?: string | null;
     example_sentence?: string | null;
     sort_order: number;
@@ -106,7 +106,7 @@ export async function getWordGroup(id: string): Promise<WordGroupOut> {
 
 export async function updateWord(
   wordId: string,
-  data: Partial<Pick<WordOut, "english" | "chinese" | "kk_phonetic" | "mnemonic" | "example_sentence">>
+  data: Partial<Pick<WordOut, "term" | "definition" | "reading" | "mnemonic" | "example_sentence">>
 ): Promise<WordOut> {
   const res = await api.put(`/words/${wordId}`, data);
   return res.data;
@@ -143,7 +143,7 @@ export async function searchWords(q: string): Promise<WordSearchResult[]> {
 export interface ArticleSentence {
   speaker: string | null;
   text: string;
-  chinese: string | null;
+  definition: string | null;
 }
 
 export interface GenerateArticleResponse {
@@ -176,9 +176,9 @@ export async function batchMarkWords(wordIds: string[], marked: boolean): Promis
 }
 
 export interface ReviewVideoWord {
-  english: string;
-  chinese: string | null;
-  kk_phonetic: string | null;
+  term: string;
+  definition: string | null;
+  reading: string | null;
   mnemonic: string | null;
 }
 
@@ -232,9 +232,9 @@ export async function deleteArticle(id: string): Promise<void> {
 
 export interface ReviewWord {
   id: string;
-  english: string;
-  chinese: string | null;
-  kk_phonetic: string | null;
+  term: string;
+  definition: string | null;
+  reading: string | null;
   mnemonic: string | null;
   example_sentence: string | null;
 }
@@ -249,9 +249,9 @@ export async function logReview(wordId: string, result: string): Promise<void> {
 }
 
 export interface ReviewWordStat {
-  english: string;
-  chinese: string | null;
-  kk_phonetic: string | null;
+  term: string;
+  definition: string | null;
+  reading: string | null;
   mnemonic: string | null;
   count: number;
 }
@@ -285,9 +285,9 @@ export interface ReviewStats {
 }
 
 export interface ExportWord {
-  english: string;
-  chinese: string | null;
-  kk_phonetic: string | null;
+  term: string;
+  definition: string | null;
+  reading: string | null;
   mnemonic: string | null;
   example_sentence: string | null;
   count: number;

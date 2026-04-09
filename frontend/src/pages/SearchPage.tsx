@@ -14,8 +14,8 @@ export default function SearchPage() {
   const [searched, setSearched] = useState(false);
 
   const handleSearch = async () => {
-    if (query.trim().length < 4) {
-      message.warning("請輸入至少 4 個字母");
+    if (query.trim().length < 1) {
+      message.warning("請輸入搜尋文字");
       return;
     }
     setLoading(true);
@@ -45,14 +45,14 @@ export default function SearchPage() {
 
   const columns = [
     {
-      title: "英文",
-      dataIndex: "english",
+      title: "日文",
+      dataIndex: "term",
       width: 160,
       render: (text: string, record: WordSearchResult) => (
         <Space size={2}>
           <Input
             defaultValue={text}
-            onPressEnter={(e) => handleCellSave(record.id, "english", (e.target as HTMLInputElement).value, text)}
+            onPressEnter={(e) => handleCellSave(record.id, "term", (e.target as HTMLInputElement).value, text)}
             style={{ flex: 1 }}
           />
           <SpeakButton text={text} />
@@ -61,28 +61,28 @@ export default function SearchPage() {
     },
     {
       title: "中文",
-      dataIndex: "chinese",
+      dataIndex: "definition",
       width: 120,
       render: (text: string | null, record: WordSearchResult) => (
         <Input
           defaultValue={text ?? ""}
-          onPressEnter={(e) => handleCellSave(record.id, "chinese", (e.target as HTMLInputElement).value, text)}
+          onPressEnter={(e) => handleCellSave(record.id, "definition", (e.target as HTMLInputElement).value, text)}
         />
       ),
     },
     {
-      title: "KK 音標",
-      dataIndex: "kk_phonetic",
+      title: "讀音",
+      dataIndex: "reading",
       width: 160,
       render: (text: string | null, record: WordSearchResult) => (
         <Input
           defaultValue={text ?? ""}
-          onPressEnter={(e) => handleCellSave(record.id, "kk_phonetic", (e.target as HTMLInputElement).value, text)}
+          onPressEnter={(e) => handleCellSave(record.id, "reading", (e.target as HTMLInputElement).value, text)}
         />
       ),
     },
     {
-      title: "故事",
+      title: "記憶法",
       dataIndex: "mnemonic",
       width: 140,
       render: (text: string | null, record: WordSearchResult) => (
@@ -126,7 +126,7 @@ export default function SearchPage() {
 
       <Card style={{ marginBottom: 16 }}>
         <Input.Search
-          placeholder="輸入至少 4 個字母搜尋（模糊比對）"
+          placeholder="輸入日文搜尋（模糊比對）"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onSearch={handleSearch}

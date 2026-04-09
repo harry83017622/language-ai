@@ -10,7 +10,7 @@ export default function SpeakButton({ text, size = "small" }: SpeakButtonProps) 
   const handleSpeak = () => {
     if (!text) return;
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "en-US";
+    utterance.lang = "ja-JP";
     utterance.rate = 0.9;
     speechSynthesis.cancel();
     speechSynthesis.speak(utterance);

@@ -58,7 +58,7 @@ function App() {
           }}
         >
           <Card style={{ textAlign: "center", padding: "24px 48px" }}>
-            <Title level={3} style={{ marginBottom: 24 }}>English Vocab Tool</Title>
+            <Title level={3} style={{ marginBottom: 24 }}>日文單字工具</Title>
             <GoogleLogin
               onSuccess={(response) => {
                 if (response.credential) {
@@ -86,7 +86,7 @@ function App() {
               whiteSpace: "nowrap",
             }}
           >
-            English Vocab Tool
+            日文單字工具
           </div>
           <Menu
             theme="dark"

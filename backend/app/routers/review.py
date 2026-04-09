@@ -122,7 +122,7 @@ async def export_top_words_csv(
     result_type: str = Query("forget"),
     period: str = Query("all"),
     limit: int = Query(10),
-    fields: str = Query("english,chinese,kk_phonetic,mnemonic,example_sentence"),
+    fields: str = Query("term,definition,reading,mnemonic,example_sentence"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -149,7 +149,7 @@ async def export_top_words_pdf(
     result_type: str = Query("forget"),
     period: str = Query("all"),
     limit: int = Query(10),
-    fields: str = Query("english,chinese,kk_phonetic,mnemonic,example_sentence"),
+    fields: str = Query("term,definition,reading,mnemonic,example_sentence"),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

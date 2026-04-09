@@ -62,12 +62,12 @@ async def send_email(
             html_parts.append(
                 '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:14px;">'
                 "<tr style='background:#1890ff;color:#fff;'>"
-                "<th>英文</th><th>中文</th><th>KK 音標</th><th>故事</th><th>例句</th></tr>"
+                "<th>日文</th><th>中文</th><th>讀音</th><th>記憶法</th><th>例句</th></tr>"
             )
             for w in g.words:
                 html_parts.append(
-                    f"<tr><td>{w.english}</td><td>{w.chinese or ''}</td>"
-                    f"<td>{w.kk_phonetic or ''}</td><td>{w.mnemonic or ''}</td>"
+                    f"<tr><td>{w.term}</td><td>{w.definition or ''}</td>"
+                    f"<td>{w.reading or ''}</td><td>{w.mnemonic or ''}</td>"
                     f"<td>{w.example_sentence or ''}</td></tr>"
                 )
             html_parts.append("</table><br/>")
@@ -75,7 +75,7 @@ async def send_email(
             text_parts.append("-" * 40)
             for w in g.words:
                 text_parts.append(
-                    f"{w.english} | {w.chinese or ''} | {w.kk_phonetic or ''} | "
+                    f"{w.term} | {w.definition or ''} | {w.reading or ''} | "
                     f"{w.mnemonic or ''} | {w.example_sentence or ''}"
                 )
 
@@ -92,7 +92,7 @@ async def send_email(
             for s in a.sentences:
                 speaker = s.get("speaker")
                 text = s.get("text", "")
-                chinese = s.get("chinese", "")
+                chinese = s.get("definition", "")
                 if speaker:
                     html_parts.append(f"<p><b style='color:#1890ff;'>{speaker}:</b> {text}</p>")
                 else:
@@ -124,7 +124,7 @@ async def send_email(
                 with open(f.file_path, "rb") as fh:
                     attachments.append((f.filename, fh.read()))
 
-    subject = payload.subject.strip() or "English Vocab Tool"
+    subject = payload.subject.strip() or "日文單字工具"
 
     try:
         email_service.send(

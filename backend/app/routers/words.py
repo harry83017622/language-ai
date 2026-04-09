@@ -12,6 +12,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import get_current_user
 from app.database import get_db
+from app.lang_config import COLUMN_PATTERNS
 from app.models import User, Word, WordGroup
 from app.schemas import (
     GenerateRequest,
@@ -32,18 +33,10 @@ router = APIRouter(prefix="/api", tags=["words"])
 
 # --- CSV Column Detection ---
 
-_COLUMN_PATTERNS: dict[str, list[str]] = {
-    "english": ["english", "eng", "英文", "單字", "word", "vocabulary", "vocab"],
-    "chinese": ["chinese", "中文", "翻譯", "解釋", "meaning", "definition", "chi", "中文解釋"],
-    "kk_phonetic": ["kk", "音標", "phonetic", "pronunciation", "發音"],
-    "mnemonic": ["諧音", "記憶", "mnemonic", "memory", "聯想", "故事", "story"],
-    "example_sentence": ["例句", "sentence", "example", "造句"],
-}
-
 
 def _detect_column(header: str) -> str | None:
     h = header.strip().lower()
-    for field, keywords in _COLUMN_PATTERNS.items():
+    for field, keywords in COLUMN_PATTERNS.items():
         for kw in keywords:
             if kw in h:
                 return field
@@ -81,49 +74,49 @@ async def upload_csv(
         if field and field not in col_map.values():
             col_map[header] = field
 
-    if "english" not in col_map.values():
-        raise HTTPException(status_code=400, detail="找不到英文欄位")
+    if "term" not in col_map.values():
+        raise HTTPException(status_code=400, detail="找不到日文欄位")
 
     words = []
     for row in reader:
         word: dict[str, str | None] = {
-            "english": None, "chinese": None, "kk_phonetic": None,
+            "term": None, "definition": None, "reading": None,
             "mnemonic": None, "example_sentence": None,
         }
         for csv_header, field in col_map.items():
             val = row.get(csv_header, "").strip()
             if val:
                 word[field] = val
-        if word["english"]:
+        if word["term"]:
             words.append(word)
 
     if not words:
         raise HTTPException(status_code=400, detail="CSV 中沒有有效的單字資料")
 
     # Look up existing words in DB
-    english_list = [w["english"].lower() for w in words]
+    term_list = [w["term"].lower() for w in words]
     result = await db.execute(
         select(Word).join(WordGroup)
-        .where(WordGroup.user_id == user.id, func.lower(Word.english).in_(english_list))
+        .where(WordGroup.user_id == user.id, func.lower(Word.term).in_(term_list))
     )
     existing: dict[str, Word] = {}
     for row in result.scalars().all():
-        key = row.english.lower()
+        key = row.term.lower()
         if key not in existing:
             existing[key] = row
 
     # Fill from DB
     for w in words:
-        db_word = existing.get(w["english"].lower())
+        db_word = existing.get(w["term"].lower())
         if db_word:
-            for field in ("chinese", "kk_phonetic", "example_sentence", "mnemonic"):
+            for field in ("definition", "reading", "example_sentence", "mnemonic"):
                 if not w[field] and getattr(db_word, field):
                     w[field] = getattr(db_word, field)
 
     # LLM for missing fields
     words_for_llm = [
         w for w in words
-        if not w["mnemonic"] or not w["chinese"] or not w["kk_phonetic"] or not w["example_sentence"]
+        if not w["mnemonic"] or not w["definition"] or not w["reading"] or not w["example_sentence"]
     ]
     mnemonic_options_map: dict[str, list[str]] = {}
 
@@ -131,30 +124,30 @@ async def upload_csv(
         llm_request = GenerateRequest(
             words=[
                 WordGenerateRequest(
-                    english=w["english"],
-                    need_chinese=not w["chinese"],
-                    need_kk=not w["kk_phonetic"],
+                    term=w["term"],
+                    need_definition=not w["definition"],
+                    need_reading=not w["reading"],
                     need_example=not w["example_sentence"],
-                    need_mnemonic=not w["mnemonic"] and " " not in w["english"].strip(),
+                    need_mnemonic=not w["mnemonic"],
                 )
                 for w in words_for_llm
             ]
         )
         llm_results = await generate_words(llm_request)
         for w, lr in zip(words_for_llm, llm_results):
-            if not w["chinese"] and lr.chinese:
-                w["chinese"] = lr.chinese
-            if not w["kk_phonetic"] and lr.kk_phonetic:
-                w["kk_phonetic"] = lr.kk_phonetic
+            if not w["definition"] and lr.definition:
+                w["definition"] = lr.definition
+            if not w["reading"] and lr.reading:
+                w["reading"] = lr.reading
             if not w["example_sentence"] and lr.example_sentence:
                 w["example_sentence"] = lr.example_sentence
             if lr.mnemonic_options:
-                mnemonic_options_map[w["english"].lower()] = lr.mnemonic_options
+                mnemonic_options_map[w["term"].lower()] = lr.mnemonic_options
 
     response_words = []
     for w in words:
         entry = {**w}
-        key = w["english"].lower()
+        key = w["term"].lower()
         if key in mnemonic_options_map:
             entry["mnemonic_options"] = mnemonic_options_map[key]
         elif w["mnemonic"]:
@@ -171,20 +164,20 @@ async def upload_csv(
 
 @router.get("/search-words", response_model=list[WordSearchResult])
 async def search_words(
-    q: str = Query(..., min_length=4),
+    q: str = Query(..., min_length=1),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(Word, WordGroup.title, WordGroup.saved_date)
         .join(WordGroup)
-        .where(WordGroup.user_id == user.id, Word.english.ilike(f"%{q}%"))
-        .order_by(Word.english)
+        .where(WordGroup.user_id == user.id, Word.term.ilike(f"%{q}%"))
+        .order_by(Word.term)
     )
     return [
         WordSearchResult(
-            id=word.id, english=word.english, chinese=word.chinese,
-            kk_phonetic=word.kk_phonetic, mnemonic=word.mnemonic,
+            id=word.id, term=word.term, definition=word.definition,
+            reading=word.reading, mnemonic=word.mnemonic,
             example_sentence=word.example_sentence, sort_order=word.sort_order,
             group_title=title, group_saved_date=saved_date,
         )
@@ -205,8 +198,8 @@ async def create_word_group(
     await db.flush()
     for i, w in enumerate(payload.words):
         db.add(Word(
-            group_id=group.id, english=w.english, chinese=w.chinese,
-            kk_phonetic=w.kk_phonetic, mnemonic=w.mnemonic,
+            group_id=group.id, term=w.term, definition=w.definition,
+            reading=w.reading, mnemonic=w.mnemonic,
             example_sentence=w.example_sentence,
             sort_order=w.sort_order if w.sort_order else i,
         ))
@@ -280,9 +273,9 @@ async def export_word_group_csv(
     if not group:
         raise HTTPException(status_code=404, detail="Word group not found")
 
-    headers = ["英文", "中文", "KK 音標", "故事", "例句"]
+    headers = ["日文", "中文", "讀音", "記憶法", "例句"]
     rows = [
-        [w.english, w.chinese or "", w.kk_phonetic or "", w.mnemonic or "", w.example_sentence or ""]
+        [w.term, w.definition or "", w.reading or "", w.mnemonic or "", w.example_sentence or ""]
         for w in group.words
     ]
     filename = f"{group.title}_{group.saved_date}.csv"
@@ -306,7 +299,7 @@ async def export_word_group_pdf(
         raise HTTPException(status_code=404, detail="Word group not found")
 
     words = [
-        {"english": w.english, "chinese": w.chinese or "", "kk_phonetic": w.kk_phonetic or "",
+        {"term": w.term, "definition": w.definition or "", "reading": w.reading or "",
          "mnemonic": w.mnemonic or "", "example_sentence": w.example_sentence or ""}
         for w in group.words
     ]

@@ -59,7 +59,7 @@ def build_video_from_audio_and_timings(
             "-i", audio_path,
             "-vf", (
                 f"subtitles={srt_path}:fontsdir=/app/fonts"
-                f":force_style='FontName=Noto Sans CJK TC,FontSize={font_size},"
+                f":force_style='FontName=Noto Sans CJK JP,FontSize={font_size},"
                 f"PrimaryColour=&Hffffff,Alignment={alignment},MarginV={margin_v}'"
             ),
             "-c:v", "libx264", "-preset", "fast", "-crf", "28",

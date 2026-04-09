@@ -43,9 +43,9 @@ class Word(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     group_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("word_groups.id", ondelete="CASCADE"), nullable=False)
-    english: Mapped[str] = mapped_column(String(255), nullable=False)
-    chinese: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    kk_phonetic: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    term: Mapped[str] = mapped_column(String(255), nullable=False)
+    definition: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    reading: Mapped[str | None] = mapped_column(String(255), nullable=True)
     mnemonic: Mapped[str | None] = mapped_column(Text, nullable=True)
     example_sentence: Mapped[str | None] = mapped_column(Text, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)

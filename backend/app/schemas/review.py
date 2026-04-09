@@ -7,9 +7,9 @@ from pydantic import BaseModel
 
 class ReviewWordOut(BaseModel):
     id: uuid.UUID
-    english: str
-    chinese: str | None = None
-    kk_phonetic: str | None = None
+    term: str
+    definition: str | None = None
+    reading: str | None = None
     mnemonic: str | None = None
     example_sentence: str | None = None
 
@@ -22,9 +22,9 @@ class LogReviewRequest(BaseModel):
 
 
 class ReviewWordStat(BaseModel):
-    english: str
-    chinese: str | None = None
-    kk_phonetic: str | None = None
+    term: str
+    definition: str | None = None
+    reading: str | None = None
     mnemonic: str | None = None
     count: int
 
@@ -58,9 +58,9 @@ class ReviewStatsOut(BaseModel):
 
 
 class ExportWordOut(BaseModel):
-    english: str
-    chinese: str | None = None
-    kk_phonetic: str | None = None
+    term: str
+    definition: str | None = None
+    reading: str | None = None
     mnemonic: str | None = None
     example_sentence: str | None = None
     count: int
