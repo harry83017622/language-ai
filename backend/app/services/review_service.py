@@ -19,8 +19,8 @@ WEIGHT_REMEMBER = 1
 TYPE_LABELS = {"forget": "忘記", "unsure": "不確定", "remember": "記得"}
 PERIOD_LABELS = {"today": "本日", "week": "本週", "month": "本月", "quarter": "本季", "all": "全部"}
 FIELD_LABELS = {
-    "english": "英文", "chinese": "中文", "kk_phonetic": "KK 音標",
-    "mnemonic": "故事", "example_sentence": "例句",
+    "term": "日文", "definition": "中文", "reading": "讀音",
+    "mnemonic": "記憶法", "example_sentence": "例句",
 }
 
 
@@ -51,8 +51,8 @@ async def get_weighted_words(
     result = await db.execute(stmt)
     all_words = result.scalars().all()
 
-    # Filter: only words/phrases with < 4 tokens
-    eligible = [w for w in all_words if len(w.english.strip().split()) < 4]
+    # Filter: only words with reasonable length
+    eligible = [w for w in all_words if len(w.term.strip()) <= 20]
     if not eligible:
         return []
 
@@ -123,7 +123,7 @@ async def get_top_by_result(
     """Get top words by review result, optionally filtered by time."""
     stmt = (
         select(
-            Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic,
+            Word.term, Word.definition, Word.reading, Word.mnemonic,
             Word.example_sentence, func.count().label("cnt"),
         )
         .join(ReviewLog, ReviewLog.word_id == Word.id)
@@ -132,16 +132,16 @@ async def get_top_by_result(
     if since:
         stmt = stmt.where(ReviewLog.created_at >= since)
     stmt = stmt.group_by(
-        Word.english, Word.chinese, Word.kk_phonetic, Word.mnemonic, Word.example_sentence
+        Word.term, Word.definition, Word.reading, Word.mnemonic, Word.example_sentence
     ).order_by(func.count().desc())
     if limit:
         stmt = stmt.limit(limit)
     res = await db.execute(stmt)
     return [
         {
-            "english": r.english,
-            "chinese": r.chinese,
-            "kk_phonetic": r.kk_phonetic,
+            "term": r.term,
+            "definition": r.definition,
+            "reading": r.reading,
             "mnemonic": r.mnemonic,
             "example_sentence": r.example_sentence,
             "count": r.cnt,

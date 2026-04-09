@@ -9,7 +9,7 @@ from pydantic import BaseModel
 class Sentence(BaseModel):
     speaker: str | None = None
     text: str
-    chinese: str | None = None
+    definition: str | None = None
 
 
 class GenerateArticleRequest(BaseModel):
@@ -66,9 +66,9 @@ class ArticleSummary(BaseModel):
 
 
 class ReviewWord(BaseModel):
-    english: str
-    chinese: str | None = None
-    kk_phonetic: str | None = None
+    term: str
+    definition: str | None = None
+    reading: str | None = None
     mnemonic: str | None = None
 
 

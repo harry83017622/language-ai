@@ -71,7 +71,7 @@ async def build_audio_with_timing(
     for s in sentences:
         voice = get_voice_for_speaker(s.get("speaker"))
         text = s["text"]
-        chinese = s.get("chinese")
+        chinese = s.get("definition")
         speaker = s.get("speaker")
 
         audio_bytes = await generate_sentence_audio(text, voice)

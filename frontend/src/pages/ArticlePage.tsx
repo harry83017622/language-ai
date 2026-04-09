@@ -61,7 +61,7 @@ export default function ArticlePage() {
       .map((w) => w.trim())
       .filter(Boolean);
     if (!words.length) {
-      message.warning("請輸入至少一個英文單字");
+      message.warning("請輸入至少一個日文單字");
       return;
     }
 
@@ -181,7 +181,7 @@ export default function ArticlePage() {
     const body = result.sentences
       .map((s) => {
         const en = s.speaker ? `${s.speaker}: ${s.text}` : s.text;
-        const zh = s.chinese ? `   ${s.chinese}` : "";
+        const zh = s.definition ? `   ${s.definition}` : "";
         return zh ? `${en}\n${zh}` : en;
       })
       .join("\n\n");
@@ -215,7 +215,7 @@ export default function ArticlePage() {
   const highlightText = (text: string) => {
     if (!result?.used_words?.length) return text;
     const pattern = new RegExp(
-      `\\b(${result.used_words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
+      `(${result.used_words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`,
       "gi"
     );
     const parts = text.split(pattern);
@@ -244,7 +244,7 @@ export default function ArticlePage() {
       <Card style={{ marginBottom: 16 }}>
         <Space direction="vertical" style={{ width: "100%" }} size="middle">
           <TextArea
-            placeholder={"輸入英文單字，每行一個\n例如：\nimplication\nperpetual\nambiguous"}
+            placeholder={"輸入日文單字，每行一個\n例如：\n食べる\n勉強\n大切"}
             value={wordsText}
             onChange={(e) => setWordsText(e.target.value)}
             autoSize={{ minRows: 6, maxRows: 15 }}
@@ -323,9 +323,9 @@ export default function ArticlePage() {
                   )}
                   {highlightText(s.text)}
                 </Paragraph>
-                {s.chinese && (
+                {s.definition && (
                   <Text type="secondary" style={{ fontSize: 13, paddingLeft: s.speaker ? 32 : 0 }}>
-                    {s.chinese}
+                    {s.definition}
                   </Text>
                 )}
               </div>

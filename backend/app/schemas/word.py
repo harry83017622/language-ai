@@ -7,9 +7,9 @@ from pydantic import BaseModel
 
 
 class WordGenerateRequest(BaseModel):
-    english: str
-    need_chinese: bool = True
-    need_kk: bool = True
+    term: str
+    need_definition: bool = True
+    need_reading: bool = True
     need_example: bool = True
     need_mnemonic: bool = True
 
@@ -20,9 +20,9 @@ class GenerateRequest(BaseModel):
 
 
 class WordGenerateResult(BaseModel):
-    english: str
-    chinese: str | None = None
-    kk_phonetic: str | None = None
+    term: str
+    definition: str | None = None
+    reading: str | None = None
     example_sentence: str | None = None
     mnemonic_options: list[str] | None = None
 
@@ -32,9 +32,9 @@ class GenerateResponse(BaseModel):
 
 
 class WordCreate(BaseModel):
-    english: str
-    chinese: str | None = None
-    kk_phonetic: str | None = None
+    term: str
+    definition: str | None = None
+    reading: str | None = None
     mnemonic: str | None = None
     example_sentence: str | None = None
     sort_order: int = 0
@@ -48,9 +48,9 @@ class WordGroupCreate(BaseModel):
 
 class WordOut(BaseModel):
     id: uuid.UUID
-    english: str
-    chinese: str | None = None
-    kk_phonetic: str | None = None
+    term: str
+    definition: str | None = None
+    reading: str | None = None
     mnemonic: str | None = None
     example_sentence: str | None = None
     sort_order: int
@@ -81,9 +81,9 @@ class WordGroupSummary(BaseModel):
 
 class WordSearchResult(BaseModel):
     id: uuid.UUID
-    english: str
-    chinese: str | None = None
-    kk_phonetic: str | None = None
+    term: str
+    definition: str | None = None
+    reading: str | None = None
     mnemonic: str | None = None
     example_sentence: str | None = None
     sort_order: int
@@ -94,8 +94,8 @@ class WordSearchResult(BaseModel):
 
 
 class WordUpdate(BaseModel):
-    english: str | None = None
-    chinese: str | None = None
-    kk_phonetic: str | None = None
+    term: str | None = None
+    definition: str | None = None
+    reading: str | None = None
     mnemonic: str | None = None
     example_sentence: str | None = None

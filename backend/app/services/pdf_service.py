@@ -146,8 +146,8 @@ def build_word_group_pdf(title: str, saved_date: str, words: list[dict]) -> tupl
     pdf.cell(0, 10, f"{title} ({saved_date})", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
-    headers = ["英文", "中文", "KK 音標", "故事", "例句"]
-    col_keys = ["english", "chinese", "kk_phonetic", "mnemonic", "example_sentence"]
+    headers = ["日文", "中文", "讀音", "記憶法", "例句"]
+    col_keys = ["term", "definition", "reading", "mnemonic", "example_sentence"]
     _render_table(pdf, headers, col_keys, words)
 
     filename = f"{title}_{saved_date}.pdf"
@@ -177,8 +177,7 @@ def build_article_pdf(
     kw_pattern = None
     if used_words:
         kw_pattern = re.compile(
-            r'\b(' + '|'.join(re.escape(w) for w in sorted(used_words, key=len, reverse=True)) + r')\b',
-            re.IGNORECASE,
+            '(' + '|'.join(re.escape(w) for w in sorted(used_words, key=len, reverse=True)) + ')',
         )
 
     def write_highlighted(text: str):
@@ -199,7 +198,7 @@ def build_article_pdf(
     for s in sentences:
         speaker = s.get("speaker")
         text = s.get("text", "")
-        chinese = s.get("chinese")
+        chinese = s.get("definition")
 
         if speaker:
             pdf.set_text_color(100, 100, 100)

@@ -20,17 +20,17 @@ async def generate(
     # Look up existing words in DB first (skip if force regenerate)
     existing: dict[str, Word] = {}
     if not request.force:
-        english_list = [w.english.lower() for w in request.words]
+        term_list = [w.term.lower() for w in request.words]
         result = await db.execute(
             select(Word)
             .join(WordGroup)
             .where(
                 WordGroup.user_id == user.id,
-                func.lower(Word.english).in_(english_list),
+                func.lower(Word.term).in_(term_list),
             )
         )
         for row in result.scalars().all():
-            key = row.english.lower()
+            key = row.term.lower()
             if key not in existing:
                 existing[key] = row
 
@@ -40,22 +40,20 @@ async def generate(
     llm_indices: list[int] = []  # track position in final_results
 
     for w in request.words:
-        is_phrase = " " in w.english.strip()
-        # Phrases/sentences: skip mnemonic entirely
-        want_mnemonic = w.need_mnemonic and not is_phrase
+        want_mnemonic = w.need_mnemonic
 
-        db_word = existing.get(w.english.lower())
+        db_word = existing.get(w.term.lower())
         if db_word:
             # Use DB values, only generate fields that DB doesn't have
             needs_llm = False
-            result_dict: dict = {"english": w.english}
-            if w.need_chinese:
-                result_dict["chinese"] = db_word.chinese
-                if not db_word.chinese:
+            result_dict: dict = {"term": w.term}
+            if w.need_definition:
+                result_dict["definition"] = db_word.definition
+                if not db_word.definition:
                     needs_llm = True
-            if w.need_kk:
-                result_dict["kk_phonetic"] = db_word.kk_phonetic
-                if not db_word.kk_phonetic:
+            if w.need_reading:
+                result_dict["reading"] = db_word.reading
+                if not db_word.reading:
                     needs_llm = True
             if w.need_example:
                 result_dict["example_sentence"] = db_word.example_sentence
@@ -71,9 +69,9 @@ async def generate(
                 idx = len(final_results)
                 final_results.append(WordGenerateResult(**result_dict))
                 words_for_llm.append(WordGenerateRequest(
-                    english=w.english,
-                    need_chinese=w.need_chinese and not db_word.chinese,
-                    need_kk=w.need_kk and not db_word.kk_phonetic,
+                    term=w.term,
+                    need_definition=w.need_definition and not db_word.definition,
+                    need_reading=w.need_reading and not db_word.reading,
                     need_example=w.need_example and not db_word.example_sentence,
                     need_mnemonic=want_mnemonic and not db_word.mnemonic,
                 ))
@@ -83,11 +81,11 @@ async def generate(
         else:
             # No DB hit, need full LLM generation
             idx = len(final_results)
-            final_results.append(WordGenerateResult(english=w.english))
+            final_results.append(WordGenerateResult(term=w.term))
             words_for_llm.append(WordGenerateRequest(
-                english=w.english,
-                need_chinese=w.need_chinese,
-                need_kk=w.need_kk,
+                term=w.term,
+                need_definition=w.need_definition,
+                need_reading=w.need_reading,
                 need_example=w.need_example,
                 need_mnemonic=want_mnemonic,
             ))
@@ -104,9 +102,9 @@ async def generate(
                 existing_result = final_results[idx]
                 # Merge: LLM fills in missing fields
                 final_results[idx] = WordGenerateResult(
-                    english=existing_result.english,
-                    chinese=existing_result.chinese or llm_result.chinese,
-                    kk_phonetic=existing_result.kk_phonetic or llm_result.kk_phonetic,
+                    term=existing_result.term,
+                    definition=existing_result.definition or llm_result.definition,
+                    reading=existing_result.reading or llm_result.reading,
                     example_sentence=existing_result.example_sentence or llm_result.example_sentence,
                     mnemonic_options=existing_result.mnemonic_options or llm_result.mnemonic_options,
                 )

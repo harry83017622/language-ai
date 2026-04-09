@@ -65,7 +65,7 @@ export default function ReviewPage() {
   const [exportType, setExportType] = useState<string>("forget");
   const [exportPeriod, setExportPeriod] = useState<string>("week");
   const [exportLimit, setExportLimit] = useState(10);
-  const [exportFields, setExportFields] = useState<string[]>(["english", "chinese", "kk_phonetic", "mnemonic", "example_sentence"]);
+  const [exportFields, setExportFields] = useState<string[]>(["term", "definition", "reading", "mnemonic", "example_sentence"]);
 
   const handleExport = async () => {
     setExportLoading(true);
@@ -286,10 +286,10 @@ export default function ReviewPage() {
                 onChange={(v) => setExportFields(v as string[])}
                 style={{ marginLeft: 8 }}
                 options={[
-                  { label: "英文", value: "english" },
-                  { label: "中文", value: "chinese" },
-                  { label: "KK 音標", value: "kk_phonetic" },
-                  { label: "故事", value: "mnemonic" },
+                  { label: "日文", value: "term" },
+                  { label: "中文", value: "definition" },
+                  { label: "讀音", value: "reading" },
+                  { label: "記憶法", value: "mnemonic" },
                   { label: "例句", value: "example_sentence" },
                 ]}
               />
@@ -302,14 +302,14 @@ export default function ReviewPage() {
                 <Table
                   dataSource={exportData}
                   columns={[
-                    ...(exportFields.includes("english") ? [{ title: "英文", dataIndex: "english", key: "english", width: 120 }] : []),
-                    ...(exportFields.includes("chinese") ? [{ title: "中文", dataIndex: "chinese", key: "chinese", width: 100 }] : []),
-                    ...(exportFields.includes("kk_phonetic") ? [{ title: "KK 音標", dataIndex: "kk_phonetic", key: "kk_phonetic", width: 130 }] : []),
-                    ...(exportFields.includes("mnemonic") ? [{ title: "故事", dataIndex: "mnemonic", key: "mnemonic", width: 120 }] : []),
+                    ...(exportFields.includes("term") ? [{ title: "日文", dataIndex: "term", key: "term", width: 120 }] : []),
+                    ...(exportFields.includes("definition") ? [{ title: "中文", dataIndex: "definition", key: "definition", width: 100 }] : []),
+                    ...(exportFields.includes("reading") ? [{ title: "讀音", dataIndex: "reading", key: "reading", width: 130 }] : []),
+                    ...(exportFields.includes("mnemonic") ? [{ title: "記憶法", dataIndex: "mnemonic", key: "mnemonic", width: 120 }] : []),
                     ...(exportFields.includes("example_sentence") ? [{ title: "例句", dataIndex: "example_sentence", key: "example_sentence", ellipsis: true as const }] : []),
                     { title: "次數", dataIndex: "count", key: "count", width: 70, render: (v: number) => <Tag color="blue">{v}</Tag> },
                   ]}
-                  rowKey="english"
+                  rowKey="term"
                   pagination={false}
                   size="small"
                   scroll={{ y: 300 }}
@@ -368,17 +368,17 @@ export default function ReviewPage() {
                             columns={[
                               {
                                 title: "單字",
-                                dataIndex: "english",
-                                key: "english",
+                                dataIndex: "term",
+                                key: "term",
                                 width: 150,
                                 render: (text: string, record: ReviewWordStat) => (
                                   <Space size={4}>
                                     <Tooltip
                                       title={
                                         <div>
-                                          {record.kk_phonetic && <div>{record.kk_phonetic}</div>}
+                                          {record.reading && <div>{record.reading}</div>}
                                           {record.mnemonic && <div>{record.mnemonic}</div>}
-                                          {!record.kk_phonetic && !record.mnemonic && <div>無額外資訊</div>}
+                                          {!record.reading && !record.mnemonic && <div>無額外資訊</div>}
                                         </div>
                                       }
                                     >
@@ -388,7 +388,7 @@ export default function ReviewPage() {
                                   </Space>
                                 ),
                               },
-                              { title: "中文", dataIndex: "chinese", key: "chinese", width: 150 },
+                              { title: "中文", dataIndex: "definition", key: "definition", width: 150 },
                               {
                                 title: "次數",
                                 dataIndex: "count",
@@ -397,7 +397,7 @@ export default function ReviewPage() {
                                 render: (v: number) => <Tag color={category.color}>{v}</Tag>,
                               },
                             ]}
-                            rowKey="english"
+                            rowKey="term"
                             pagination={false}
                             size="small"
                             scroll={{ y: 350 }}
@@ -537,9 +537,9 @@ export default function ReviewPage() {
         }}
         onClick={!flipped ? handleFlip : undefined}
       >
-        {/* English - always visible */}
+        {/* Term - always visible */}
         <Title level={1} style={{ marginBottom: 8, fontSize: 42 }}>
-          {currentWord?.english}
+          {currentWord?.term}
         </Title>
         {currentWord && (
           <Button
@@ -548,8 +548,8 @@ export default function ReviewPage() {
             size="large"
             onClick={(e) => {
               e.stopPropagation();
-              const u = new SpeechSynthesisUtterance(currentWord.english);
-              u.lang = "en-US";
+              const u = new SpeechSynthesisUtterance(currentWord.term);
+              u.lang = "ja-JP";
               u.rate = 0.9;
               speechSynthesis.cancel();
               speechSynthesis.speak(u);
@@ -563,12 +563,12 @@ export default function ReviewPage() {
         {/* Flipped content */}
         {flipped && currentWord && (
           <Space direction="vertical" size="middle">
-            {currentWord.kk_phonetic && (
-              <Text style={{ fontSize: 20, color: "#666" }}>{currentWord.kk_phonetic}</Text>
+            {currentWord.reading && (
+              <Text style={{ fontSize: 20, color: "#666" }}>{currentWord.reading}</Text>
             )}
-            {currentWord.chinese && (
+            {currentWord.definition && (
               <Title level={3} style={{ margin: 0, color: "#1890ff" }}>
-                {currentWord.chinese}
+                {currentWord.definition}
               </Title>
             )}
             {currentWord.mnemonic && (

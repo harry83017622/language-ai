@@ -26,7 +26,8 @@ class LoginResponse(BaseModel):
 async def google_login(payload: GoogleLoginRequest, db: AsyncSession = Depends(get_db)):
     try:
         google_data = await verify_google_token(payload.credential)
-    except Exception:
+    except Exception as e:
+        print(f"Google token verification failed: {e}")
         raise HTTPException(status_code=401, detail="Invalid Google token")
 
     result = await db.execute(select(User).where(User.google_id == google_data["sub"]))

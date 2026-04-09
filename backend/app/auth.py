@@ -22,7 +22,9 @@ bearer_scheme = HTTPBearer()
 
 
 def _verify_google_token_sync(token: str) -> dict:
-    return id_token.verify_oauth2_token(token, google_requests.Request(), GOOGLE_CLIENT_ID)
+    return id_token.verify_oauth2_token(
+        token, google_requests.Request(), GOOGLE_CLIENT_ID, clock_skew_in_seconds=5
+    )
 
 
 async def verify_google_token(token: str) -> dict:

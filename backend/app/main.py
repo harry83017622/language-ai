@@ -22,7 +22,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="English Vocabulary Tool", lifespan=lifespan)
+app = FastAPI(title="Japanese Vocabulary Tool", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

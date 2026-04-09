@@ -35,14 +35,14 @@ const { Title } = Typography;
 
 interface WordRow {
   key: string;
-  english: string;
-  chinese: string | null;
-  kk_phonetic: string | null;
+  term: string;
+  definition: string | null;
+  reading: string | null;
   mnemonic: string | null;
   mnemonic_options: string[] | null;
   example_sentence: string | null;
-  need_chinese: boolean;
-  need_kk: boolean;
+  need_definition: boolean;
+  need_reading: boolean;
   need_example: boolean;
   need_mnemonic: boolean;
   generated: boolean; // whether LLM has been called for this row
@@ -51,14 +51,14 @@ interface WordRow {
 let keyCounter = 0;
 const newRow = (): WordRow => ({
   key: String(++keyCounter),
-  english: "",
-  chinese: null,
-  kk_phonetic: null,
+  term: "",
+  definition: null,
+  reading: null,
   mnemonic: null,
   mnemonic_options: null,
   example_sentence: null,
-  need_chinese: true,
-  need_kk: true,
+  need_definition: true,
+  need_reading: true,
   need_example: true,
   need_mnemonic: true,
   generated: false,
@@ -178,18 +178,18 @@ export default function CreatePage() {
 
   // --- Generate all ---
   const handleGenerate = async () => {
-    const valid = rows.filter((r) => r.english.trim());
+    const valid = rows.filter((r) => r.term.trim());
     if (!valid.length) {
-      message.warning("請至少輸入一個英文單字");
+      message.warning("請至少輸入一個日文單字");
       return;
     }
 
     setLoading(true);
     try {
       const req: WordGenerateRequest[] = valid.map((r) => ({
-        english: r.english.trim(),
-        need_chinese: r.need_chinese,
-        need_kk: r.need_kk,
+        term: r.term.trim(),
+        need_definition: r.need_definition,
+        need_reading: r.need_reading,
         need_example: r.need_example,
         need_mnemonic: r.need_mnemonic,
       }));
@@ -203,8 +203,8 @@ export default function CreatePage() {
             const d = data[dataIdx++];
             return {
               ...r,
-              chinese: d.chinese ?? r.chinese,
-              kk_phonetic: d.kk_phonetic ?? r.kk_phonetic,
+              definition: d.definition ?? r.definition,
+              reading: d.reading ?? r.reading,
               example_sentence: d.example_sentence ?? r.example_sentence,
               mnemonic_options: d.mnemonic_options,
               mnemonic: d.mnemonic_options?.length === 1 ? d.mnemonic_options[0] : (r.mnemonic ?? null),
@@ -222,17 +222,17 @@ export default function CreatePage() {
     }
   };
 
-  // --- Regenerate story for single word ---
-  const handleRegenerateStory = async (key: string) => {
+  // --- Regenerate mnemonic for single word ---
+  const handleRegenerateMnemonic = async (key: string) => {
     const row = rows.find((r) => r.key === key);
-    if (!row || !row.english.trim()) return;
+    if (!row || !row.term.trim()) return;
 
     setRegeneratingKey(key);
     try {
       const data = await generateWords([{
-        english: row.english.trim(),
-        need_chinese: false,
-        need_kk: false,
+        term: row.term.trim(),
+        need_definition: false,
+        need_reading: false,
         need_example: false,
         need_mnemonic: true,
       }], true);
@@ -241,7 +241,7 @@ export default function CreatePage() {
         updateRow(key, "mnemonic", null);
       }
     } catch {
-      message.error("重新生成故事失敗");
+      message.error("重新生成記憶法失敗");
     } finally {
       setRegeneratingKey(null);
     }
@@ -253,16 +253,16 @@ export default function CreatePage() {
     try {
       const data = await uploadCsv(file);
       const detectedFields = Object.keys(data.detected_columns);
-      const imported: WordRow[] = data.words.map((w, i) => ({
+      const imported: WordRow[] = data.words.map((w) => ({
         key: String(++keyCounter),
-        english: w.english,
-        chinese: w.chinese,
-        kk_phonetic: w.kk_phonetic,
+        term: w.term,
+        definition: w.definition,
+        reading: w.reading,
         mnemonic: w.mnemonic_options?.length === 1 ? w.mnemonic_options[0] : (w.mnemonic ?? null),
         mnemonic_options: w.mnemonic_options ?? null,
         example_sentence: w.example_sentence,
-        need_chinese: !w.chinese,
-        need_kk: !w.kk_phonetic,
+        need_definition: !w.definition,
+        need_reading: !w.reading,
         need_example: !w.example_sentence,
         need_mnemonic: !w.mnemonic && !(w.mnemonic_options?.length),
         generated: true,
@@ -283,7 +283,7 @@ export default function CreatePage() {
       message.warning("請輸入標題");
       return;
     }
-    const valid = rows.filter((r) => r.english.trim());
+    const valid = rows.filter((r) => r.term.trim());
     if (!valid.length) {
       message.warning("沒有可儲存的單字");
       return;
@@ -295,9 +295,9 @@ export default function CreatePage() {
         title: groupTitle.trim(),
         saved_date: savedDate,
         words: valid.map((r, i) => ({
-          english: r.english,
-          chinese: r.chinese,
-          kk_phonetic: r.kk_phonetic,
+          term: r.term,
+          definition: r.definition,
+          reading: r.reading,
           mnemonic: r.mnemonic,
           example_sentence: r.example_sentence,
           sort_order: i,
@@ -325,42 +325,42 @@ export default function CreatePage() {
   // --- Columns ---
   const columns = [
     {
-      title: "英文",
-      dataIndex: "english",
+      title: "日文",
+      dataIndex: "term",
       width: 140,
       render: (text: string, record: WordRow) => (
         <Input
           value={text}
-          onChange={(e) => updateRow(record.key, "english", e.target.value)}
-          placeholder="e.g. ambulance"
+          onChange={(e) => updateRow(record.key, "term", e.target.value)}
+          placeholder="例：食べる"
           onPressEnter={addRow}
         />
       ),
     },
     {
       title: "中文",
-      dataIndex: "chinese",
+      dataIndex: "definition",
       width: 110,
       render: (text: string | null, record: WordRow) =>
         record.generated ? (
-          <Input value={text ?? ""} onChange={(e) => updateRow(record.key, "chinese", e.target.value)} />
+          <Input value={text ?? ""} onChange={(e) => updateRow(record.key, "definition", e.target.value)} />
         ) : (
-          <Checkbox checked={record.need_chinese} onChange={(e) => updateRow(record.key, "need_chinese", e.target.checked)} />
+          <Checkbox checked={record.need_definition} onChange={(e) => updateRow(record.key, "need_definition", e.target.checked)} />
         ),
     },
     {
-      title: "KK 音標",
-      dataIndex: "kk_phonetic",
+      title: "讀音",
+      dataIndex: "reading",
       width: 140,
       render: (text: string | null, record: WordRow) =>
         record.generated ? (
-          <Input value={text ?? ""} onChange={(e) => updateRow(record.key, "kk_phonetic", e.target.value)} />
+          <Input value={text ?? ""} onChange={(e) => updateRow(record.key, "reading", e.target.value)} />
         ) : (
-          <Checkbox checked={record.need_kk} onChange={(e) => updateRow(record.key, "need_kk", e.target.checked)} />
+          <Checkbox checked={record.need_reading} onChange={(e) => updateRow(record.key, "need_reading", e.target.checked)} />
         ),
     },
     {
-      title: "故事",
+      title: "記憶法",
       dataIndex: "mnemonic",
       width: 260,
       render: (_: unknown, record: WordRow) => {
@@ -406,12 +406,12 @@ export default function CreatePage() {
               }}
               size="small"
             />
-            <Tooltip title="重新生成故事">
+            <Tooltip title="重新生成記憶法">
               <Button
                 size="small"
                 icon={<ReloadOutlined />}
                 loading={regeneratingKey === record.key}
-                onClick={() => handleRegenerateStory(record.key)}
+                onClick={() => handleRegenerateMnemonic(record.key)}
               />
             </Tooltip>
           </Space>
@@ -484,7 +484,7 @@ export default function CreatePage() {
         <Space style={{ marginBottom: 16, width: "100%" }} direction="vertical">
           <Space>
             <Input
-              placeholder="標題（例如：TOEIC 第一課）"
+              placeholder="標題（例如：N3 第一課）"
               value={groupTitle}
               onChange={(e) => setGroupTitle(e.target.value)}
               style={{ width: 300 }}

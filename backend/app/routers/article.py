@@ -30,36 +30,37 @@ client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # --- Article Generation ---
 
-ARTICLE_SYSTEM_PROMPT = """You are an English writing assistant for a Taiwanese student.
-Generate a short English article or dialogue using the provided vocabulary words.
+ARTICLE_SYSTEM_PROMPT = """You are a Japanese writing assistant for a Taiwanese student learning Japanese.
+Generate a short Japanese article or dialogue using the provided vocabulary words.
 For each sentence, also provide a natural Traditional Chinese (繁體中文) translation.
 
 Rules:
 - Use approximately the specified ratio of the provided words (e.g., 90% means use ~90% of them)
-- You may change the tense (past, present, future), form (noun, verb, adjective), number (singular/plural), or objects of phrases to make the content more natural and fluent. For example: "look forward to it" can become "looking forward to the trip"
-- The content should be natural and readable, at an intermediate English level
+- You may change the form (verb conjugation, politeness level, tense) to make the content more natural. For example: "食べる" can become "食べました" or "食べたい"
+- The content should be natural and readable, at an intermediate Japanese level (JLPT N3-N4)
 - Each sentence should be practical and educational
+- Include furigana in parentheses for kanji, e.g. 勉強（べんきょう）する
 - The Chinese translation should be natural, fluent, and accurate — not word-by-word translation
 
 For "article" mode:
 - Write a coherent, well-structured article (3-6 paragraphs)
-- Use proper written English: formal tone, topic sentences, transitions, logical flow
-- The style should read like a real essay or news article, NOT like a conversation
+- Use proper written Japanese: です/ます form, appropriate connectors (しかし、それから、また)
+- The style should read like a real essay or blog post
 - Return sentences split by sentence (one per entry)
 - No speaker field needed
 
 For "dialogue" mode:
 - Write a natural, realistic conversation between exactly 2 people
 - Use speaker labels: "A" and "B" only
-- Use natural spoken English: contractions (I'm, don't, gonna), fillers (well, you know, I mean), short sentences, interruptions, reactions (Oh really?, That's great!)
-- The dialogue should sound like real people talking, NOT like written text read aloud
+- Use natural spoken Japanese: casual forms, fillers (えーと、あのう、ねえ), reactions (そうですか、すごい！、へえ～)
+- The dialogue should sound like real people talking
 - Each line of dialogue is one entry with speaker and text
 
 Return a JSON object:
 {
-  "title": "A short title for the article/dialogue",
-  "sentences": [{"speaker": null, "text": "English sentence", "chinese": "中文翻譯"}, ...] for article mode,
-              or [{"speaker": "A", "text": "English line", "chinese": "中文翻譯"}, ...] for dialogue mode,
+  "title": "A short title in Japanese for the article/dialogue",
+  "sentences": [{"speaker": null, "text": "Japanese sentence", "definition": "中文翻譯"}, ...] for article mode,
+              or [{"speaker": "A", "text": "Japanese line", "definition": "中文翻譯"}, ...] for dialogue mode,
   "used_words": ["word1", "word2", ...] (list of provided words that were actually used)
 }
 Always return valid JSON and nothing else."""
@@ -162,15 +163,15 @@ async def generate_review_video(
     # Build sentences for audio + timing
     sentences = []
     for w in request.words:
-        lines = [w.english]
-        if w.kk_phonetic:
-            lines.append(w.kk_phonetic)
-        if w.chinese:
-            lines.append(w.chinese)
+        lines = [w.term]
+        if w.reading:
+            lines.append(w.reading)
+        if w.definition:
+            lines.append(w.definition)
         if w.mnemonic:
             lines.append(w.mnemonic)
         display = "\n".join(lines)
-        sentences.append({"text": w.english, "display": display})
+        sentences.append({"text": w.term, "display": display})
 
     # Generate audio with extra reading time
     mp3_bytes, timings = await audio_service.build_audio_with_timing(

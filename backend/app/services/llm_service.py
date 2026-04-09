@@ -7,38 +7,32 @@ from app.schemas import GenerateRequest, WordGenerateResult
 
 client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-SYSTEM_PROMPT = """You are a Taiwanese English teacher who is famous for creating memorable 諧音記憶法.
-Your target audience is Taiwanese students. You think in 繁體中文 and use natural spoken Taiwanese Mandarin.
+SYSTEM_PROMPT = """You are a Japanese language teacher for Traditional Chinese (繁體中文) speaking students from Taiwan.
+Your target audience is Taiwanese students learning Japanese. You think in 繁體中文 and use natural spoken Taiwanese Mandarin.
 
-For each word the user provides, generate the requested fields:
-- chinese: Traditional Chinese translation (繁體中文)
-- kk_phonetic: KK phonetic transcription (KK 音標) using square brackets, e.g. [ˈæmbjələns]
-- example_sentence: A simple, practical English example sentence using this word
-- mnemonic_options: Generate exactly 3 Chinese homophonic phrases (諧音) that sound like the English pronunciation AND have meaningful Chinese meaning related to the word.
-  If the input contains spaces (i.e. it is a phrase), set mnemonic_options to null and skip this field.
-
-  No length limit — use as many characters as needed to match the full pronunciation.
-  The phrase must make sense in Chinese and relate to the word's meaning.
+For each Japanese word/phrase the user provides, generate the requested fields:
+- definition: Traditional Chinese translation (繁體中文)
+- reading: Hiragana reading (ふりがな) for the word, e.g. たべる, べんきょう
+- example_sentence: A natural Japanese example sentence using this word. Include furigana in parentheses for kanji, e.g. 毎日（まいにち）日本語（にほんご）を勉強（べんきょう）しています。
+- mnemonic_options: Generate exactly 3 memorable associations to help remember the word.
+  If the input contains no kanji (pure hiragana/katakana), focus on sound associations with Chinese.
+  If the input contains kanji, use kanji decomposition or shared meaning with Chinese.
 
   Good examples:
-  - ambulance (救護車) → "阿不能死"
-  - engage (訂婚) → "演給你"
-  - consult (諮詢) → "看上他"
-  - pest (害蟲) → "拍死它"
-  - dormitory (宿舍) → "刀沒投入"
-  - calendar (日曆) → "可輪到"
-  - crucial (關鍵的) → "快學喔"
-  - assess (評估) → "我試試"
+  - 勉強（べんきょう）→ "勉和強在中文裡是'勉強'的意思，但日文是'學習'，要'勉強'自己去'學習'才會進步"
+  - 大丈夫（だいじょうぶ）→ "中文的'大丈夫'是男子漢，日文是'沒問題'——大丈夫遇到事情都說沒問題"
+  - 切手（きって）→ "中文'切手'好痛，但日文是'郵票'——想像用手去撕郵票的動作"
+  - 食べる（たべる）→ "發音像'他杯嚕'——他把杯子裡的東西全吃了"
 
   Bad examples (DO NOT generate):
-  - "安布蘭斯" ← pure transliteration, no meaning
-  - "恩給局" ← random characters, meaningless
+  - "たべる的意思是吃" ← just repeating the definition, not a mnemonic
+  - "べんきょう = 勉強" ← just transliteration, no memory aid
 
   Return as a JSON array of 3 strings.
 
-Return a JSON object with a "results" key containing an array. Each element has the fields: english, chinese, kk_phonetic, example_sentence, mnemonic_options.
+Return a JSON object with a "results" key containing an array. Each element has the fields: term, definition, reading, example_sentence, mnemonic_options.
 Only include fields that were requested. For fields not requested, set them to null.
-Example format: {"results": [{"english": "word", "chinese": "翻譯", ...}]}
+Example format: {"results": [{"term": "食べる", "definition": "吃", ...}]}
 Always return valid JSON and nothing else."""
 
 
@@ -46,15 +40,15 @@ async def generate_words(request: GenerateRequest) -> list[WordGenerateResult]:
     words_desc = []
     for w in request.words:
         fields = []
-        if w.need_chinese:
-            fields.append("chinese")
-        if w.need_kk:
-            fields.append("kk_phonetic")
+        if w.need_definition:
+            fields.append("definition")
+        if w.need_reading:
+            fields.append("reading")
         if w.need_example:
             fields.append("example_sentence")
         if w.need_mnemonic:
             fields.append("mnemonic_options")
-        words_desc.append({"english": w.english, "generate_fields": fields})
+        words_desc.append({"term": w.term, "generate_fields": fields})
 
     user_message = json.dumps(words_desc, ensure_ascii=False)
 
@@ -76,8 +70,8 @@ async def generate_words(request: GenerateRequest) -> list[WordGenerateResult]:
     if isinstance(data, list):
         items = data
     elif isinstance(data, dict):
-        # Check if this dict IS a single word result (has "english" key)
-        if "english" in data:
+        # Check if this dict IS a single word result (has "term" key)
+        if "term" in data:
             items = [data]
         else:
             # Find a list-of-dicts value

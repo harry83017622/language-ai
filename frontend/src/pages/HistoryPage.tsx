@@ -131,7 +131,7 @@ export default function HistoryPage() {
       const promises = editWords.map((w, i) => {
         const original = detail.words[i];
         const changes: Record<string, string> = {};
-        for (const field of ["english", "chinese", "kk_phonetic", "mnemonic", "example_sentence"] as const) {
+        for (const field of ["term", "definition", "reading", "mnemonic", "example_sentence"] as const) {
           if ((w[field] ?? "") !== (original[field] ?? "")) {
             changes[field] = w[field] ?? "";
           }
@@ -190,9 +190,9 @@ export default function HistoryPage() {
     try {
       const blob = await generateReviewVideo(
         selected.map((w) => ({
-          english: w.english,
-          chinese: w.chinese,
-          kk_phonetic: w.kk_phonetic,
+          term: w.term,
+          definition: w.definition,
+          reading: w.reading,
           mnemonic: w.mnemonic,
         }))
       );
@@ -259,44 +259,44 @@ export default function HistoryPage() {
       ),
     },
     {
-      title: "英文",
-      dataIndex: "english",
+      title: "日文",
+      dataIndex: "term",
       width: 150,
       render: (text: string, _: WordOut, index: number) => (
         <Space size={2}>
           <Input
-            value={editWords[index]?.english ?? text}
-            onChange={(e) => updateEditWord(index, "english", e.target.value)}
+            value={editWords[index]?.term ?? text}
+            onChange={(e) => updateEditWord(index, "term", e.target.value)}
             style={{ flex: 1 }}
           />
-          <SpeakButton text={editWords[index]?.english ?? text} />
+          <SpeakButton text={editWords[index]?.term ?? text} />
         </Space>
       ),
     },
     {
       title: "中文",
-      dataIndex: "chinese",
+      dataIndex: "definition",
       width: 120,
       render: (text: string | null, _: WordOut, index: number) => (
         <Input
-          value={editWords[index]?.chinese ?? text ?? ""}
-          onChange={(e) => updateEditWord(index, "chinese", e.target.value)}
+          value={editWords[index]?.definition ?? text ?? ""}
+          onChange={(e) => updateEditWord(index, "definition", e.target.value)}
         />
       ),
     },
     {
-      title: "KK 音標",
-      dataIndex: "kk_phonetic",
+      title: "讀音",
+      dataIndex: "reading",
       width: 150,
       render: (text: string | null, _: WordOut, index: number) => (
         <Input
-          value={editWords[index]?.kk_phonetic ?? text ?? ""}
-          onChange={(e) => updateEditWord(index, "kk_phonetic", e.target.value)}
+          value={editWords[index]?.reading ?? text ?? ""}
+          onChange={(e) => updateEditWord(index, "reading", e.target.value)}
         />
       ),
     },
     {
-      title: "故事",
+      title: "記憶法",
       dataIndex: "mnemonic",
       width: 150,
       render: (text: string | null, _: WordOut, index: number) => (
