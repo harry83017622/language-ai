@@ -9,7 +9,6 @@ from app.auth import create_access_token, verify_google_token
 from app.database import get_db
 from app.models import User
 from app.schemas import UserOut
-from app.seed import seed_default_words
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -44,7 +43,6 @@ async def google_login(payload: GoogleLoginRequest, db: AsyncSession = Depends(g
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        await seed_default_words(db, user.id)
     else:
         user.name = google_data.get("name", user.name)
         user.picture = google_data.get("picture", user.picture)

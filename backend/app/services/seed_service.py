@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Word, WordGroup
 
 SEED_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "seed_data")
-LEVELS = ["n5", "n4", "n3"]
+LEVELS = ["n5", "n4", "n3", "n2", "n1"]
 GROUP_SIZE = 25  # words per group
 
 
@@ -97,6 +97,8 @@ async def import_level(
                 term=w["term"],
                 definition=w.get("definition"),
                 reading=w.get("reading"),
+                mnemonic=w.get("mnemonic"),
+                example_sentence=w.get("example_sentence"),
                 sort_order=j,
             ))
             imported_words += 1

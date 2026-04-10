@@ -274,10 +274,10 @@ export default function ReviewPage() {
         <Card style={{ marginTop: 16 }}>
           <Title level={4} style={{ marginTop: 0 }}>匯入 JLPT 單字庫</Title>
           <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
-            一鍵匯入 JLPT N5~N3 單字，每 25 個字為一組，立即開始複習
+            一鍵匯入 JLPT N5~N1 單字，每 25 個字為一組，立即開始複習
           </Text>
           <Space direction="vertical" style={{ width: "100%" }}>
-            {(["n5", "n4", "n3"] as const).map((level) => {
+            {(["n5", "n4", "n3", "n2", "n1"] as const).map((level) => {
               const s = seedStatus?.[level];
               const fullyImported = s?.fully_imported ?? false;
               const imported = s?.imported_groups ?? 0;
