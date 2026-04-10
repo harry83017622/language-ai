@@ -24,7 +24,7 @@ target_metadata = Base.metadata
 # Build sync URL from DATABASE_URL (replace asyncpg with psycopg2)
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+asyncpg://english_tool:english_tool_pw@localhost:5432/english_tool",
+    "postgresql+asyncpg://english_tool:english_tool_pw@localhost:5433/english_tool",
 )
 SYNC_URL = DATABASE_URL.replace("+asyncpg", "")
 
