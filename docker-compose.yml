@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: english_tool_pw
       POSTGRES_DB: english_tool
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -42,6 +42,7 @@ services:
       - "3000:3000"
     environment:
       VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
     depends_on:
       - backend
 

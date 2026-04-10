@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8000/api",
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api",
 });
 
 api.interceptors.request.use((config) => {
@@ -328,6 +328,31 @@ export async function sendEmail(data: {
   custom_text?: string;
 }): Promise<void> {
   await api.post("/send-email", data);
+}
+
+// --- Seed (JLPT import) ---
+
+export interface SeedLevelStatus {
+  total_words: number;
+  total_groups: number;
+  imported_groups: number;
+  fully_imported: boolean;
+}
+
+export type SeedStatus = Record<string, SeedLevelStatus>;
+
+export async function getSeedStatus(): Promise<SeedStatus> {
+  const res = await api.get("/seed/status");
+  return res.data;
+}
+
+export async function importJlptLevel(level: string): Promise<{
+  imported_groups: number;
+  imported_words: number;
+  skipped_groups: number;
+}> {
+  const res = await api.post(`/seed/import/${level}`);
+  return res.data;
 }
 
 export default api;
