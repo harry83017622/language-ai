@@ -22,17 +22,19 @@ import {
   ArrowRightOutlined,
   ArrowUpOutlined,
   CheckCircleOutlined,
+  DownloadOutlined,
   QuestionCircleOutlined,
   CloseCircleOutlined,
   ReloadOutlined,
   SoundOutlined,
 } from "@ant-design/icons";
+import { message } from "antd";
 import dayjs from "dayjs";
 import SpeakButton from "../components/SpeakButton";
 import { downloadBlob, extractFilename } from "../utils/download";
 import { TYPE_LABELS, PERIOD_LABELS } from "../utils/labels";
-import type { ReviewWord, ReviewStats, ReviewWordStat, ExportWord } from "../api";
-import api, { getReviewWords, logReview, getReviewStats, exportTopWords } from "../api";
+import type { ReviewWord, ReviewStats, ReviewWordStat, ExportWord, SeedStatus } from "../api";
+import api, { getReviewWords, logReview, getReviewStats, exportTopWords, getSeedStatus, importJlptLevel } from "../api";
 
 const { Title, Text } = Typography;
 
@@ -66,6 +68,28 @@ export default function ReviewPage() {
   const [exportPeriod, setExportPeriod] = useState<string>("week");
   const [exportLimit, setExportLimit] = useState(10);
   const [exportFields, setExportFields] = useState<string[]>(["term", "definition", "reading", "mnemonic", "example_sentence"]);
+
+  // JLPT seed import
+  const [seedStatus, setSeedStatus] = useState<SeedStatus | null>(null);
+  const [seedLoading, setSeedLoading] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    getSeedStatus().then(setSeedStatus).catch(() => {});
+  }, []);
+
+  const handleImportLevel = async (level: string) => {
+    setSeedLoading((prev) => ({ ...prev, [level]: true }));
+    try {
+      const result = await importJlptLevel(level);
+      message.success(`已匯入 ${result.imported_words} 個單字（${result.imported_groups} 組）`);
+      const updated = await getSeedStatus();
+      setSeedStatus(updated);
+    } catch {
+      message.error("匯入失敗");
+    } finally {
+      setSeedLoading((prev) => ({ ...prev, [level]: false }));
+    }
+  };
 
   const handleExport = async () => {
     setExportLoading(true);
@@ -243,6 +267,44 @@ export default function ReviewPage() {
             <Button size="large" onClick={() => setExportOpen(true)} block>
               匯出單字
             </Button>
+          </Space>
+        </Card>
+
+        {/* JLPT Import */}
+        <Card style={{ marginTop: 16 }}>
+          <Title level={4} style={{ marginTop: 0 }}>匯入 JLPT 單字庫</Title>
+          <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+            一鍵匯入 JLPT N5~N3 單字，每 25 個字為一組，立即開始複習
+          </Text>
+          <Space direction="vertical" style={{ width: "100%" }}>
+            {(["n5", "n4", "n3"] as const).map((level) => {
+              const s = seedStatus?.[level];
+              const fullyImported = s?.fully_imported ?? false;
+              const imported = s?.imported_groups ?? 0;
+              const total = s?.total_groups ?? 0;
+              return (
+                <div key={level} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <Space>
+                    <Tag color={fullyImported ? "green" : "blue"} style={{ fontSize: 14, padding: "2px 12px" }}>
+                      {level.toUpperCase()}
+                    </Tag>
+                    <Text>
+                      {s ? `${s.total_words} 字 / ${total} 組` : "載入中..."}
+                      {imported > 0 && !fullyImported && ` (已匯入 ${imported}/${total} 組)`}
+                      {fullyImported && " ✓ 已匯入"}
+                    </Text>
+                  </Space>
+                  <Button
+                    icon={<DownloadOutlined />}
+                    onClick={() => handleImportLevel(level)}
+                    loading={seedLoading[level]}
+                    disabled={fullyImported}
+                  >
+                    {fullyImported ? "已匯入" : imported > 0 ? "繼續匯入" : "匯入"}
+                  </Button>
+                </div>
+              );
+            })}
           </Space>
         </Card>
 
